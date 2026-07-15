@@ -33,11 +33,13 @@ publishing.
 - Use one release version everywhere: `1.1.0`.
 - Start exactly `npx --yes osrs-wiki-mcp@1.1.0`; never use `latest`, a range,
   an unpinned global binary, or a second server implementation.
-- Treat bare `npx` as provisional until native Codex, Claude, and Gemini startup
-  tests pass on Windows and a generic process-launch probe passes on Ubuntu.
-  Direct Node spawning reproduces `ENOENT` on this Windows host; if a supported
-  client does the same, revise and re-review the launcher architecture before
-  publication.
+- Treat bare `npx` as provisional until native Codex and Claude startup tests
+  pass on Windows, as does Gemini when its downloaded CLI is explicitly
+  approved, and a generic process-launch probe passes on Ubuntu. When Gemini is
+  not approved, use its documented deterministic-validation deferral without a
+  native-verification claim. Direct Node spawning reproduces `ENOENT` on this
+  Windows host; if a tested supported client does the same, revise and re-review
+  the launcher architecture before publication.
 - Require Node.js 24 or newer on every platform.
 - Preserve exactly ten read-only Wiki tools and all existing schemas, warnings,
   provenance, reliability budgets, and licensing behavior.
@@ -164,7 +166,7 @@ git commit -m "feat: publish MCP usage instructions"
 - Create after evaluation: `evals/osrs-wiki-research/results-summary.json`
 - Create: `skills/osrs-wiki-research/SKILL.md`
 - Create: `skills/osrs-wiki-research/agents/openai.yaml`
-- Test: `test/eval-stub-contract.test.ts`
+- Test: `test/integration/eval-stub-contract.test.ts`
 
 **Interfaces:**
 
@@ -194,10 +196,13 @@ connecting it to `StdioServerTransport`. The synthetic client must:
 - return two distinct monster variants;
 - perform no HTTP, filesystem writes, clocks, randomness, or environment reads.
 
-Add `test/eval-stub-contract.test.ts` that builds the project, starts this
-actual stdio server, and asserts initialize instructions, exactly ten tools,
-the warning path, section recovery, two variants, and zero attempted network
-calls. Keep the fixture outside `src/` so it cannot enter the npm tarball.
+Add `test/integration/eval-stub-contract.test.ts` that consumes an already-built
+`dist/`, starts this actual stdio server, and asserts initialize instructions,
+exactly ten tools, the warning path, section recovery, two variants, and zero
+attempted network calls. The test must never invoke a build itself. Keeping it
+under `test/integration/` excludes this process-heavy contract from the default
+concurrent `test/*.test.ts` suite. Keep the fixture outside `src/` so it cannot
+enter the npm tarball.
 
 - [ ] **Step 2: Prove the stub before evaluating any skill**
 
@@ -205,7 +210,7 @@ Run:
 
 ```powershell
 npm.cmd run build
-node --test test/eval-stub-contract.test.ts
+node --test --test-concurrency=1 test/integration/eval-stub-contract.test.ts
 npm.cmd run pack:check
 ```
 
@@ -214,10 +219,10 @@ shows no `evals/`, `skills/`, or plugin files.
 
 - [ ] **Step 3: Preregister disjoint cases and the scoring rubric**
 
-Create four diagnostic cases for authoring and eight held-out cases for the
-final claim. The held-out set contains one unseen variant of each frozen design
-scenario: acquisition overview/recovery, quest requirements, ambiguous title,
-long-page sections, monster variants, live-price boundary, player-state
+Create eight diagnostic cases for authoring and eight held-out cases for the
+final claim: one diagnostic and one unseen held-out variant for each frozen
+design scenario—acquisition overview/recovery, quest requirements, ambiguous
+title, long-page sections, monster variants, live-price boundary, player-state
 boundary, and DPS boundary. Prompts use only synthetic entity names and never
 contain the expected tool names.
 
@@ -309,23 +314,30 @@ only; do not inspect held-out outputs yet.
 Record the skill hash, then run each held-out case twice per arm in fresh
 sessions, interleaving and randomizing arm order. Use the exact command shape
 from Step 5 and change only `--plugin-dir`. Save raw traces outside the
-repository with randomized filenames so manual scoring can be blind to arm.
+repository with randomized filenames, but do not treat the raw traces as fully
+blind: a treatment trace can disclose its arm through the `Skill` invocation.
 
 Verify from each trace that the synthetic MCP—not a global or live server—was
-used. Score all 32 held-out runs against the preregistered rubric, then reveal
-the arm mapping and apply the pass criteria. Do not change the skill after the
+used. Then create a separate scoring view that retains the prompt, MCP calls and
+results, and final answer while redacting arm labels, plugin paths/metadata, and
+`Skill` invocation events. Randomize scoring-view filenames independently and
+show scorers only that view. Score all 32 held-out runs against the
+preregistered rubric, then reveal the arm mapping and apply the pass criteria.
+The primary agent verifies scores against the unredacted raw traces afterward.
+This is partial, not perfect, blinding. Do not change the skill after the
 held-out set is opened; a failure requires a new versioned eval set.
 
 - [ ] **Step 8: Record sanitized evidence and commit**
 
 Create `results-summary.json` containing the frozen CLI/model versions, command
 flags, case/rubric hashes, skill hash, per-case aggregate scores, pass/fail
-result, and SHA-256 hashes of sanitized raw traces. Do not commit raw model
-outputs, local paths, session IDs, user settings, or credentials. The primary
-agent reads every trace and signs off in the summary.
+result, `"blinding": "partial"`, the redaction policy, and SHA-256 hashes of
+both sanitized raw traces and scoring views. Do not commit raw model outputs,
+local paths, session IDs, user settings, or credentials. The primary agent
+reads every trace and signs off in the summary.
 
 ```powershell
-git add -- evals/osrs-wiki-research skills/osrs-wiki-research test/eval-stub-contract.test.ts
+git add -- evals/osrs-wiki-research skills/osrs-wiki-research test/integration/eval-stub-contract.test.ts
 git commit -m "feat: add evaluated OSRS Wiki research skill"
 ```
 
@@ -466,7 +478,7 @@ test("marketplaces expose the supported plugin roots once", async () => {
   }]);
 });
 
-test("plugin configuration contains no mutable pins, secrets, writes, or personal paths", async () => {
+test("plugin configuration contains only the exact runtime pin and no secrets, writes, or personal paths", async () => {
   const paths = [
     ".mcp.json",
     "plugins/osrs-wiki-mcp/.mcp.json",
@@ -478,7 +490,10 @@ test("plugin configuration contains no mutable pins, secrets, writes, or persona
   ];
   const text = (await Promise.all(paths.map((path) => readFile(new URL(path, root), "utf8")))).join("\n");
 
-  assert.doesNotMatch(text, /osrs-wiki-mcp@(latest|next)|osrs-wiki-mcp@[~^]/u);
+  const pins = [...text.matchAll(/osrs-wiki-mcp@[A-Za-z0-9*_.~^+-]+/gu)]
+    .map(([pin]) => pin);
+  assert.ok(pins.length > 0);
+  assert.deepEqual([...new Set(pins)], ["osrs-wiki-mcp@1.1.0"]);
   assert.doesNotMatch(text, /[A-Za-z]:[\\/]Users[\\/]/u);
   assert.doesNotMatch(text, /token|secret|password|api[_-]?key/iu);
   assert.doesNotMatch(text, /"(env|hooks|apps|monitors|commands)"\s*:/u);
@@ -487,10 +502,19 @@ test("plugin configuration contains no mutable pins, secrets, writes, or persona
 
 test("trusted staged publishing pins tooling and publishes the verified artifact", async () => {
   const workflow = await loadText(".github/workflows/publish.yml");
+  const ci = await loadText(".github/workflows/ci.yml");
   assert.match(workflow, /npm install --global npm@11\.16\.0/u);
   assert.match(workflow, /actions\/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a/u);
-  assert.match(workflow, /node scripts\/inspect-pack\.mjs --artifact-dir/u);
+  assert.match(workflow, /id:\s*release-pack/u);
+  assert.match(workflow, /node scripts\/inspect-pack\.mjs --artifact-dir "\$RUNNER_TEMP\/npm-release" --release-sha "\$\{\{ github\.sha \}\}"/u);
+  assert.match(workflow, /echo "tarball=\$RUNNER_TEMP\/npm-release\/\$TARBALL" >> "\$GITHUB_OUTPUT"/u);
   assert.match(workflow, /npm stage publish "\$\{\{ steps\.release-pack\.outputs\.tarball \}\}"/u);
+  for (const testWorkflow of [ci, workflow]) {
+    assert.match(
+      testWorkflow,
+      /node --test --test-concurrency=1 test\/integration\/eval-stub-contract\.test\.ts test\/integration\/release-artifact\.test\.ts/u,
+    );
+  }
 });
 ```
 
@@ -525,12 +549,13 @@ Do not commit this task separately while red. Carry the test into Task 4.
 - Create: `.agents/plugins/marketplace.json`
 - Create: `.claude-plugin/marketplace.json`
 - Create: `gemini-extension.json`
+- Modify: `.github/workflows/ci.yml`
 - Modify: `.github/workflows/publish.yml`
 - Modify: `scripts/inspect-pack.mjs`
 - Modify: `package.json`
 - Modify: `package-lock.json`
 - Test: `test/plugin-bundle.test.ts`
-- Create: `test/release-artifact.test.ts`
+- Create: `test/integration/release-artifact.test.ts`
 
 **Interfaces:**
 
@@ -683,16 +708,24 @@ Create `gemini-extension.json`:
 ```
 
 Do not create `GEMINI.md`; the lazy `skills/` directory is the guidance surface.
+The current official Gemini extension schema does not document repository,
+homepage, or license fields, so do not invent unsupported manifest keys. The
+Git install source and README provide that metadata. Recheck the current
+official schema during implementation and change this decision only with
+schema evidence.
 
 - [ ] **Step 5: Add a tested exact-release-artifact mode**
 
-First create `test/release-artifact.test.ts`. In an OS temporary directory, run
-`scripts/inspect-pack.mjs --artifact-dir <temp> --release-sha <40-hex fixture>`
-and assert it produces exactly one `.tgz`, `npm-pack.json`, `SHA256SUMS`, and
-`RELEASE_SHA`; the SHA-256 file matches the tarball; the JSON filename,
-package/version, npm shasum, and integrity match the tarball; the release SHA
-matches the argument; and no `.tgz` is left in the repository. Run the test and
-observe the missing-option failure before implementation.
+First create `test/integration/release-artifact.test.ts`. In an OS temporary
+directory, run `scripts/inspect-pack.mjs --artifact-dir <temp> --release-sha
+<40-hex fixture>` and assert it produces exactly one `.tgz`, `npm-pack.json`,
+`SHA256SUMS`, and `RELEASE_SHA`; the SHA-256 file matches the tarball; the JSON
+filename, package/version, npm shasum, and integrity match the tarball; the
+release SHA matches the argument; and no `.tgz` is left in the repository. This
+process-heavy test performs pack, clean-install, and stdio work, so keep it out
+of the default concurrent `test/*.test.ts` suite and run it serially only after
+`dist/` has been built. Run the test and observe the missing-option failure
+before implementation.
 
 Refactor `scripts/inspect-pack.mjs` so its default local mode remains unchanged,
 but release-artifact mode:
@@ -712,10 +745,41 @@ cleanup behavior did not regress.
 
 In `.github/workflows/publish.yml`, immediately after `actions/setup-node`, add
 an explicit `npm install --global npm@11.16.0` step and a step that asserts
-`npm --version` is exactly `11.16.0`. After normal verification, run the new
-release-artifact mode into `$RUNNER_TEMP/npm-release`, expose its exact tarball
-path as the `release-pack` step output, and upload the whole directory as
-`npm-release-${{ github.sha }}` using commit-pinned
+`npm --version` is exactly `11.16.0`. In both `.github/workflows/ci.yml` and the
+publish workflow, build `dist/` first and then run the two process-heavy
+integration contracts serially with this exact command:
+
+```yaml
+- name: Run process-heavy integration contracts serially
+  run: node --test --test-concurrency=1 test/integration/eval-stub-contract.test.ts test/integration/release-artifact.test.ts
+```
+
+Keep `npm test` as the concurrent lightweight `test/*.test.ts` suite. After
+normal verification in the publish workflow, create the exact release artifact
+and output with this contract:
+
+```yaml
+- name: Prepare exact release tarball
+  id: release-pack
+  shell: bash
+  run: |
+    mkdir -p "$RUNNER_TEMP/npm-release"
+    node scripts/inspect-pack.mjs --artifact-dir "$RUNNER_TEMP/npm-release" --release-sha "${{ github.sha }}"
+    TARBALL="$(node -e 'const fs = require("node:fs"); const [entry] = JSON.parse(fs.readFileSync(process.argv[1], "utf8")); if (!entry?.filename) process.exit(1); process.stdout.write(entry.filename);' "$RUNNER_TEMP/npm-release/npm-pack.json")"
+    echo "tarball=$RUNNER_TEMP/npm-release/$TARBALL" >> "$GITHUB_OUTPUT"
+
+- name: Upload verified release tarball
+  uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+  with:
+    name: npm-release-${{ github.sha }}
+    path: ${{ runner.temp }}/npm-release/
+    if-no-files-found: error
+    retention-days: 7
+```
+
+This passes the workflow commit explicitly as `--release-sha` and writes the
+tarball path through the `release-pack` step's `$GITHUB_OUTPUT`. Upload the whole
+directory as `npm-release-${{ github.sha }}` using commit-pinned
 `actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a`
 (`v7.0.1`), `if-no-files-found: error`, and seven-day retention.
 
@@ -737,9 +801,10 @@ Run:
 
 ```powershell
 node --test test/plugin-bundle.test.ts
-node --test test/release-artifact.test.ts
 npm.cmd run typecheck
 npm.cmd test
+npm.cmd run build
+node --test --test-concurrency=1 test/integration/eval-stub-contract.test.ts test/integration/release-artifact.test.ts
 ```
 
 Expected: bundle tests pass and the complete suite remains green. The Codex
@@ -769,7 +834,7 @@ as a design change, not a reason to suppress validation.
 - [ ] **Step 9: Commit the complete bundle**
 
 ```powershell
-git add -- package.json package-lock.json test/plugin-bundle.test.ts test/release-artifact.test.ts scripts/inspect-pack.mjs .mcp.json plugins/osrs-wiki-mcp .claude-plugin .agents gemini-extension.json .github/workflows/publish.yml
+git add -- package.json package-lock.json test/plugin-bundle.test.ts test/integration/release-artifact.test.ts scripts/inspect-pack.mjs .mcp.json plugins/osrs-wiki-mcp .claude-plugin .agents gemini-extension.json .github/workflows/ci.yml .github/workflows/publish.yml
 git commit -m "feat: add cross-agent OSRS Wiki plugin"
 ```
 
@@ -826,7 +891,11 @@ The raw MCP configuration below remains the smallest option for other clients.
 When applying the text, use a four-backtick outer fence in the Markdown source or separate the platform
 snippets so nested fences render correctly. Add verified, exact removal commands
 and config locations for the existing direct registration in Codex, Claude,
-and Gemini; test them in disposable profiles before documenting them.
+and Gemini; test those removal/migration procedures in disposable profiles
+before documenting them. At this pre-release stage, validate the install
+commands and manifest structures without pretending that Git tag `v1.1.0` or
+npm package `1.1.0` is already public. The real tagged installs are deferred to
+Task 7 Step 6.
 
 - [ ] **Step 2: Update the raw MCP pin**
 
@@ -861,10 +930,28 @@ Run:
 git diff --check
 npm.cmd run pack:check
 npm.cmd pack --dry-run --json
+$selectorFiles = @('README.md', 'CONTRIBUTING.md', '.mcp.json', 'plugins/osrs-wiki-mcp/.mcp.json', 'gemini-extension.json')
+$selectorText = ($selectorFiles | ForEach-Object { Get-Content -LiteralPath $_ -Raw }) -join "`n"
+$selectors = @([regex]::Matches($selectorText, 'osrs-wiki-mcp@[A-Za-z0-9*_.~^+-]+').Value | Sort-Object -Unique)
+$expectedSelectors = @('osrs-wiki-mcp@1.1.0', 'osrs-wiki-mcp@v1.1.0', 'osrs-wiki-mcp@sander-virula-osrs')
+if (@(Compare-Object $selectors $expectedSelectors).Count -ne 0) { throw "Unexpected npm, Git, or marketplace selector; found: $($selectors -join ', ')" }
+$readme = Get-Content -LiteralPath README.md -Raw
+$requiredInstallLines = @(
+  'codex plugin marketplace add SanderVirula/osrs-wiki-mcp --ref v1.1.0',
+  'codex plugin add osrs-wiki-mcp@sander-virula-osrs',
+  'claude plugin marketplace add SanderVirula/osrs-wiki-mcp@v1.1.0 --scope user',
+  'claude plugin install osrs-wiki-mcp@sander-virula-osrs --scope user',
+  'gemini extensions install https://github.com/SanderVirula/osrs-wiki-mcp --ref v1.1.0'
+)
+foreach ($line in $requiredInstallLines) {
+  if (-not $readme.Contains($line)) { throw "Missing exact immutable install line: $line" }
+}
 ```
 
 Also scan the rendered install section for unpinned Git sources and verify the
-three platform-specific migration procedures in disposable profiles.
+three platform-specific removal/migration procedures in disposable profiles.
+Do not claim that the tagged install snippets were executed until the
+post-publication native smokes in Task 7.
 
 Expected: Markdown has no whitespace errors; the npm tarball remains limited to
 the existing runtime files and does not contain `.mcp.json`, plugin manifests,
@@ -881,7 +968,11 @@ git commit -m "docs: add cross-agent plugin installation"
 
 ### Task 6: Verify, Review, and Merge the Feature
 
-**Files:** Modify only files required by verified findings.
+**Files:**
+
+- Modify: `README.md` only to record the exact Claude Code version proven by
+  the native smoke.
+- Modify any other file only when required by a verified finding.
 
 **Interfaces:**
 
@@ -897,6 +988,7 @@ npm.cmd ci --ignore-scripts
 npm.cmd run typecheck
 npm.cmd test
 npm.cmd run build
+node --test --test-concurrency=1 test/integration/eval-stub-contract.test.ts test/integration/release-artifact.test.ts
 npm.cmd run smoke:stdio
 npm.cmd run pack:check
 npm.cmd audit --omit=dev --audit-level=high
@@ -907,18 +999,28 @@ git diff --check origin/main...HEAD
 git status --short
 ```
 
-Expected: all commands pass; test output includes the new initialize and plugin
-bundle/eval-stub tests; the controlled eval summary passes; and only intentional
-feature files are changed. `git diff --check origin/main...HEAD` covers committed
-feature changes rather than only the current worktree.
+Expected: all commands pass. `npm test` contains only the lightweight
+`test/*.test.ts` suite, including initialize and plugin-bundle contracts; the
+explicit serial command passes both process-heavy integration contracts. The
+controlled eval summary passes and only intentional feature files are changed.
+`git diff --check origin/main...HEAD` covers committed feature changes rather
+than only the current worktree. Confirm CI and publish workflows run the same
+serial integration command only after building `dist/`.
 
 Before review, use disposable native Codex and Claude profiles on Windows to
 prove marketplace discovery and bare-`npx` startup against the currently
 published `osrs-wiki-mcp@1.0.0` in a disposable copy of the wrapper; this tests
 the launcher without pretending unpublished `1.1.0` exists. Run the generic
 launcher probe on Ubuntu CI. If any supported host cannot start bare `npx`, stop
-and revise the launcher design before publication. Run the equivalent pinned
-Gemini smoke only after explicit approval to execute its downloaded CLI.
+and revise and re-review the launcher design before publication. Record the
+exact Claude Code CLI version that passes and add it to the README as a
+"verified with" baseline—not an inferred minimum—before review. Commit that
+documentation-only change and rerun `git diff --check origin/main...HEAD` plus
+`git status --short`. Run the equivalent pinned Gemini smoke only after explicit
+approval to execute its downloaded CLI. If approval is unavailable, run the
+deterministic Gemini manifest/schema and install-layout contracts, record the
+native-smoke deferral, and do not claim native Gemini verification; that
+fallback satisfies the pre-release Gemini gate.
 
 - [ ] **Step 2: Request a fresh read-only reviewer agent**
 
@@ -983,6 +1085,15 @@ patch release.
 - Git tag: `v1.1.0`
 - GitHub-backed marketplaces/extensions at the merged commit
 
+Run Steps 1 through 3 on the same maintainer machine and, normally, in the same
+PowerShell session. Persist the non-secret release context under the OS temp
+directory so an interrupted shell can reload and revalidate it rather than
+reconstructing timestamps, SHAs, run IDs, or artifact paths by hand:
+
+```powershell
+$releaseContextPath = Join-Path $env:TEMP 'osrs-wiki-mcp-1.1.0-release-context.json'
+```
+
 - [ ] **Step 1: Return to the primary checkout and capture the release SHA**
 
 Do not try to `git switch main` inside the feature worktree when `main` is
@@ -1003,8 +1114,8 @@ must match it.
 
 - [ ] **Step 2: Trigger and bind the trusted staged-publish workflow**
 
-Confirm the workflow uses Node 24 and npm CLI `>=11.15.0` (pin npm CLI in the
-workflow if necessary), then trigger it:
+Confirm the workflow uses Node 24 and npm CLI exactly `11.16.0`, then trigger
+it:
 
 ```powershell
 $dispatchStartedAt = (Get-Date).ToUniversalTime()
@@ -1033,16 +1144,45 @@ token. Download the commit-named artifact before touching the npm stage:
 $workflowArtifactDir = Join-Path $env:TEMP "osrs-wiki-mcp-$releaseSha-workflow"
 gh run download $runId --name "npm-release-$releaseSha" --dir $workflowArtifactDir
 if ((Get-Content (Join-Path $workflowArtifactDir 'RELEASE_SHA') -Raw).Trim() -ne $releaseSha) { throw 'Workflow artifact SHA mismatch' }
+[ordered]@{
+  releaseSha = $releaseSha
+  dispatchStartedAt = $dispatchStartedAt.ToString('o')
+  runId = $runId
+  workflowArtifactDir = $workflowArtifactDir
+} | ConvertTo-Json | Set-Content -LiteralPath $releaseContextPath -Encoding utf8
 ```
 
 - [ ] **Step 3: Inspect and explicitly approve the npm stage**
 
-On a maintainer machine, require npm CLI `>=11.15.0` and identify the stage for
-exactly `osrs-wiki-mcp@1.1.0`:
+Before release day, verify the staged-publishing JSON field names below against
+the current official npm documentation and the pinned npm CLI `11.16.0`. If the
+CLI schema differs, stop and update the reviewed release contract; do not guess
+aliases or continue with missing fields. Reload the persisted context even when
+the original shell survived, revalidate its artifact binding, require npm CLI
+exactly `11.16.0`, and identify the stage for exactly
+`osrs-wiki-mcp@1.1.0`:
 
 ```powershell
-npm.cmd --version
+$releaseContextPath = Join-Path $env:TEMP 'osrs-wiki-mcp-1.1.0-release-context.json'
+$releaseContext = Get-Content -LiteralPath $releaseContextPath -Raw | ConvertFrom-Json
+$releaseSha = [string]$releaseContext.releaseSha
+$dispatchStartedAt = ([datetime]$releaseContext.dispatchStartedAt).ToUniversalTime()
+$runId = [long]$releaseContext.runId
+$workflowArtifactDir = [string]$releaseContext.workflowArtifactDir
+if ($releaseSha -notmatch '^[0-9a-f]{40}$') { throw 'Persisted release SHA is invalid' }
+if ((Get-Content (Join-Path $workflowArtifactDir 'RELEASE_SHA') -Raw).Trim() -ne $releaseSha) { throw 'Persisted workflow artifact SHA mismatch' }
+$npmVersion = (npm.cmd --version).Trim()
+if ($npmVersion -ne '11.16.0') { throw "Expected npm 11.16.0, found $npmVersion" }
+function Assert-JsonFields([object]$Object, [string[]]$Fields, [string]$Label) {
+  foreach ($field in $Fields) {
+    if ($null -eq $Object.PSObject.Properties[$field]) { throw "$Label is missing required field '$field'" }
+  }
+}
 $stages = @(npm.cmd stage list osrs-wiki-mcp --json | ConvertFrom-Json)
+if ($LASTEXITCODE -ne 0) { throw 'npm stage list failed' }
+foreach ($candidate in $stages) {
+  Assert-JsonFields $candidate @('id', 'packageName', 'version', 'createdAt') 'npm stage list entry'
+}
 $matchingStages = @($stages | Where-Object {
   $_.packageName -eq 'osrs-wiki-mcp' -and
   $_.version -eq '1.1.0' -and
@@ -1051,13 +1191,17 @@ $matchingStages = @($stages | Where-Object {
 if ($matchingStages.Count -ne 1) { throw "Expected one matching npm stage, found $($matchingStages.Count)" }
 $stageId = $matchingStages[0].id
 $stage = npm.cmd stage view $stageId --json | ConvertFrom-Json
+if ($LASTEXITCODE -ne 0) { throw 'npm stage view failed' }
+Assert-JsonFields $stage @('id', 'packageName', 'version', 'createdAt', 'shasum') 'npm stage view'
 $pack = @(Get-Content (Join-Path $workflowArtifactDir 'npm-pack.json') -Raw | ConvertFrom-Json)
 if ($stage.packageName -ne 'osrs-wiki-mcp' -or $stage.version -ne '1.1.0' -or $stage.shasum -ne $pack[0].shasum) { throw 'Stage metadata does not match the workflow tarball' }
-$stageDir = Join-Path $env:TEMP "osrs-wiki-mcp-$stageId-stage"
+$stageDir = Join-Path $env:TEMP "osrs-wiki-mcp-$stageId-$(New-Guid)-stage"
 New-Item -ItemType Directory -Force -Path $stageDir | Out-Null
 Push-Location $stageDir
 try { npm.cmd stage download $stageId } finally { Pop-Location }
-$stageTarball = Join-Path $stageDir "osrs-wiki-mcp-1.1.0-$stageId.tgz"
+$stageTarballs = @(Get-ChildItem -LiteralPath $stageDir -Filter '*.tgz' -File)
+if ($stageTarballs.Count -ne 1) { throw "Expected exactly one downloaded stage tarball, found $($stageTarballs.Count)" }
+$stageTarball = $stageTarballs[0].FullName
 $workflowTarball = Join-Path $workflowArtifactDir $pack[0].filename
 if ((Get-FileHash $stageTarball -Algorithm SHA256).Hash -ne (Get-FileHash $workflowTarball -Algorithm SHA256).Hash) { throw 'Stage tarball differs from workflow tarball' }
 ```
@@ -1122,17 +1266,22 @@ For Gemini, use a disposable user home and the explicitly approved exact CLI
 version. Install the repository at `v1.1.0`, confirm the extension-owned server
 and skill are discovered, then make the same single live query. Ensure no
 same-name user setting overrides the extension. Do not execute a downloaded
-Gemini CLI until the user has approved that third-party-code boundary.
+Gemini CLI until the user has approved that third-party-code boundary. If that
+approval is unavailable, rerun the deterministic manifest/schema,
+install-layout, exact-pin, and mirror contracts; record Gemini's native smoke as
+deferred in the release evidence and do not claim it was natively verified.
+That documented fallback satisfies the Gemini release criterion.
 
 Limit the smoke to one live Wiki query per platform.
 
 - [ ] **Step 7: Perform the real direct-MCP migration and final checks**
 
-Only after the isolated plugin succeeds, apply the verified platform-specific
-README removal steps to the real Codex, Claude, and Gemini configurations.
-Restart each installed client and confirm the sole remaining server is
-plugin-owned and exposes ten tools. Keep the raw setup documented for clients
-that do not support plugins.
+Only after an isolated plugin succeeds on a platform, apply that platform's
+verified README removal steps to its real configuration. Restart each migrated
+client and confirm the sole remaining server is plugin-owned and exposes ten
+tools. If Gemini's native smoke was deferred, leave its existing direct MCP
+registration unchanged and record that migration as deferred too. Keep the raw
+setup documented for clients that do not support plugins.
 
 Finally confirm:
 
@@ -1146,4 +1295,6 @@ npm.cmd view osrs-wiki-mcp@1.1.0 version --json
 
 Expected: clean synchronized `main`; HEAD and tag both equal `$releaseSha`;
 published GitHub and npm releases; exactly one plugin-owned server per migrated
-client; and no unpublished follow-up work required.
+client; and no undisclosed required follow-up. Any unapproved Gemini native
+smoke and migration remain explicitly recorded as deferred, without a native
+verification claim.

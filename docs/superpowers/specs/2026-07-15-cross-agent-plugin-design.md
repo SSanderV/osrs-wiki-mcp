@@ -173,10 +173,11 @@ declaration and Codex reads its byte-identical compatibility mirror:
 ```
 
 Gemini embeds the same server object under its required `mcpServers` field.
-The intended portable declaration uses `npx`, but all three native client
-launchers must prove it on Windows and a generic process-launch probe must pass
-on Ubuntu before release. A direct Node `child_process.spawn("npx")` call fails
-with `ENOENT` on this Windows host even though `npx.cmd` exists. If a supported
+The intended portable declaration uses `npx`, but Codex and Claude must prove it
+through native client launchers on Windows, as must Gemini when its downloaded
+CLI is explicitly approved. A generic process-launch probe must pass on Ubuntu
+before release. A direct Node `child_process.spawn("npx")` call fails with
+`ENOENT` on this Windows host even though `npx.cmd` exists. If a tested supported
 client behaves the same way, stop and revise and re-review the launcher
 architecture. There are no environment variables, credentials, writable data
 paths, or unpinned top-level package selectors.
@@ -201,7 +202,10 @@ included wherever the platform schema supports them.
   strict manifest ownership.
 - Gemini: `gemini-extension.json` declares the same name, version,
   description, and MCP server. It relies on lazy agent-skill discovery and does
-  not define a `GEMINI.md`, avoiding permanent context cost.
+  not define a `GEMINI.md`, avoiding permanent context cost. The current
+  documented Gemini extension schema has no repository, homepage, or license
+  fields, so the manifest does not invent them; the install source and README
+  carry that metadata. Recheck the schema when implementing the manifest.
 
 No manifest advertises player awareness, account advice, write access, or a
 hosted service.
@@ -299,8 +303,11 @@ must therefore include a migration note:
 - Claude and Codex are locally available for native validation. Gemini is not
   installed on this workstation, so its manifest receives deterministic
   contract validation and, only with explicit user approval, a clean pinned
-  temporary-CLI install smoke before release. All three native smokes run on
-  Windows; CI or a disposable runner covers Ubuntu launcher behavior.
+  temporary-CLI install smoke before release. If that approval is unavailable,
+  deterministic manifest/schema validation plus a recorded native-smoke
+  deferral satisfies the release gate, but the release must not claim native
+  Gemini verification. All approved native smokes run on Windows; CI or a
+  disposable runner covers only the generic Ubuntu launcher behavior.
 
 ## Testing Strategy
 
@@ -327,7 +334,9 @@ Add offline Node tests that parse every JSON manifest and assert:
 
 Run the official Codex plugin validator and `claude plugin validate --strict .`
 in addition to the repository tests. Validate the Gemini manifest against the
-current documented schema and exercise a temporary local extension install.
+current documented schema. Exercise a temporary local extension install only
+when the downloaded CLI is explicitly approved; otherwise record the native
+smoke as deferred without claiming native verification.
 
 ### Skill behavior
 
@@ -345,8 +354,8 @@ Skill development follows a controlled baseline-first evaluation:
 - have the primary agent inspect every result rather than accepting an
   automated score alone.
 
-The synthetic evaluation set contains diagnostic and held-out variants of five
-positive scenarios and three negative or boundary scenarios:
+The synthetic evaluation set contains one diagnostic and one held-out variant
+of each of five positive scenarios and three negative or boundary scenarios:
 
 1. bounded item acquisition overview with recovery to complete drops;
 2. exact quest requirements without player-readiness claims;
@@ -360,8 +369,12 @@ positive scenarios and three negative or boundary scenarios:
 The skill passes only on the frozen held-out rubric when the plugin arm selects
 valid tools, follows synthetic warning and pagination signals, avoids
 unsupported claims, and includes provenance more consistently than the
-no-skill arm. Raw traces stay outside the repository; a sanitized summary
-records the environment, aggregate scores, and trace hashes.
+no-skill arm. Scoring is only partially blind because the treatment trace can
+reveal a `Skill` invocation. Keep raw traces for verification, but generate a
+separate randomized scoring view with arm labels, plugin metadata, and skill
+invocation events redacted before manual scoring. Raw traces stay outside the
+repository; a sanitized summary records the environment, aggregate scores,
+trace hashes, scoring-view hashes, and the partial-blinding limitation.
 
 ### Release and install smokes
 
@@ -373,12 +386,15 @@ audit, and scans. After `1.1.0` is published from the verified commit:
   one server, ten tools, instructions, and one live `search_wiki` call;
 - load the Claude plugin from the repository, run strict validation, confirm one
   server and ten tools, and make one live `search_wiki` call;
-- install the Gemini extension with a pinned temporary CLI, confirm discovery,
-  and make one live `search_wiki` call;
+- when explicitly approved, install the Gemini extension with a pinned
+  temporary CLI, confirm discovery, and make one live `search_wiki` call;
+  otherwise complete deterministic contract/schema validation, record the
+  native-smoke deferral, and make no native-verification claim;
 - perform no more than one live Wiki query per platform smoke;
-- prove all three native client launchers on Windows and a generic process
-  launch on Ubuntu before publication; revise and re-review the architecture if
-  bare `npx` fails in any supported client;
+- prove the Codex and Claude native client launchers on Windows, plus Gemini
+  when its downloaded CLI is approved, and a generic process launch on Ubuntu
+  before publication; revise and re-review the architecture if bare `npx` fails
+  in any tested supported client;
 - complete the local direct-MCP-to-plugin cutover only after all supported
   installed clients pass and the observed server origin is plugin-owned.
 
@@ -408,8 +424,10 @@ The design is complete when:
 5. the full existing server suite and package gates remain green on Windows and
    Ubuntu;
 6. pre- and post-publication native install smokes show exactly one plugin-owned
-   server and ten tools in Codex, Claude, and Gemini on Windows, with launcher
-   behavior also covered on Ubuntu;
+   server and ten tools in Codex and Claude on Windows, plus Gemini when its
+   downloaded CLI is explicitly approved; otherwise Gemini has deterministic
+   contract/schema validation and a documented native-smoke deferral, with no
+   native-verification claim. A generic bare-`npx` process probe covers Ubuntu;
 7. migration guidance prevents simultaneous direct and plugin-provided
    registrations;
 8. no secrets, personal configuration, duplicated server code, or Wiki-derived
