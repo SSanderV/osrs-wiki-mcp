@@ -13,22 +13,28 @@ second server implementation, adding player state, or changing the product
 into a hosted service.
 
 The MCP remains the product and the only data-access implementation. Platform
-manifests and one shared skill are distribution and guidance layers over the
-published npm executable.
+manifests and one canonical skill are distribution and guidance layers over the
+published npm executable. A byte-identical Codex compatibility mirror exists
+only because the current Codex marketplace resolver rejects a plugin source at
+the repository root.
 
 ## Goals
 
 - Let users install the MCP and its usage guidance as one versioned bundle.
-- Reuse one `skills/osrs-wiki-research/SKILL.md` across all three agents.
-- Reuse one `.mcp.json` for Codex and Claude Code; keep Gemini's required inline
-  server declaration mechanically identical.
+- Keep `skills/osrs-wiki-research/SKILL.md` as the canonical skill used by
+  Claude Code and Gemini CLI, with a contract-enforced byte-identical Codex
+  mirror.
+- Keep root `.mcp.json` canonical for Claude Code; mirror it byte-for-byte in
+  the Codex plugin and keep Gemini's required inline declaration mechanically
+  identical.
 - Add concise MCP server-level instructions so clients benefit even when they
   ignore or do not support the plugin skill.
 - Keep the npm runtime pinned exactly and preserve the existing read-only,
   stateless, low-volume request model.
 - Prevent duplicate global and plugin-provided registrations during migration.
-- Keep releases reproducible, testable, and free of secrets or personal
-  configuration.
+- Keep releases version-pinned, testable, and free of secrets or personal
+  configuration; document the remaining npm registry/cache and transitive
+  dependency boundary instead of claiming complete reproducibility.
 
 ## Non-goals
 
@@ -44,15 +50,19 @@ published npm executable.
 
 ## Considered Approaches
 
-### A. Shared-root cross-agent wrapper — selected
+### A. Canonical root plus Codex compatibility wrapper — selected
 
-Place the Codex and Claude manifests, their separate marketplace catalogs,
-Gemini's extension manifest, one MCP config, and one skill at the repository
-root. All wrappers start the exact published `osrs-wiki-mcp` version.
+Keep the Claude and Gemini extension surfaces, canonical MCP config, and
+canonical skill at the repository root. Put the Codex plugin in
+`plugins/osrs-wiki-mcp/`, because current Codex source resolution strips `./`
+and rejects the resulting empty path. All wrappers start the exact published
+`osrs-wiki-mcp` version.
 
 This gives each platform its native install surface while keeping one runtime
-and one set of behavioral guidance. The unavoidable duplication is limited to
-Gemini's inline MCP declaration and is protected by contract tests.
+and one canonical set of behavioral guidance. The unavoidable duplication is
+limited to Gemini's inline MCP declaration plus byte-identical Codex mirrors of
+the tiny MCP config and skill. Contract tests prevent drift; symlinks are not
+used because Windows and plugin caches do not handle them consistently.
 
 ### B. One platform-specific wrapper directory per agent
 
@@ -69,7 +79,8 @@ agent-skill workflow. It leaves most of the proposed adoption value unrealized.
 
 ## Architecture
 
-The repository root is both the source repository and the plugin root:
+The repository root is the Claude/Gemini extension root and contains a nested
+Codex plugin root:
 
 ```text
 osrs-wiki-mcp/
@@ -77,27 +88,32 @@ osrs-wiki-mcp/
 ├── .claude-plugin/
 │   ├── marketplace.json                   # Claude marketplace catalog
 │   └── plugin.json                        # Claude plugin manifest
-├── .codex-plugin/plugin.json              # Codex plugin manifest
-├── .mcp.json                              # Shared Codex/Claude MCP declaration
+├── .mcp.json                              # Canonical Claude MCP declaration
 ├── gemini-extension.json                  # Gemini manifest + matching MCP entry
 ├── skills/osrs-wiki-research/
-│   ├── SKILL.md                           # Shared lazy-loaded workflow
+│   ├── SKILL.md                           # Canonical lazy-loaded workflow
 │   └── agents/openai.yaml                 # Codex skill UI metadata
+├── plugins/osrs-wiki-mcp/                 # Codex compatibility plugin root
+│   ├── .codex-plugin/plugin.json
+│   ├── .mcp.json                          # Byte-identical canonical mirror
+│   └── skills/osrs-wiki-research/         # Byte-identical canonical mirror
+│       ├── SKILL.md
+│       └── agents/openai.yaml
 ├── src/server.ts                          # Server instructions and tools
 ├── test/plugin-bundle.test.ts             # Cross-file/version contracts
 └── test/server-contract.test.ts           # MCP initialize contract
 ```
 
-Only `.codex-plugin/plugin.json` belongs under `.codex-plugin`. Only the Claude
-manifest and marketplace belong under `.claude-plugin`. Skills and `.mcp.json`
-remain at the plugin root so both platforms discover the same files. Gemini
-discovers the same root `skills/` directory and reads its MCP declaration from
-`gemini-extension.json`.
+Only the Codex compatibility root contains `.codex-plugin/plugin.json`. Only
+the repository root contains the Claude manifest and marketplace. Claude and
+Gemini discover the canonical root `skills/` directory. Codex discovers the
+mirrored files relative to `plugins/osrs-wiki-mcp/`. Bundle tests compare both
+copies byte-for-byte.
 
 Codex and Claude use separate marketplace files because their catalog schemas
-are incompatible. Both catalogs identify `osrs-wiki-mcp` and use the repository
-root (`./`) as the plugin source. Their marketplace name is
-`sander-virula-osrs`.
+are incompatible. Both catalogs identify `osrs-wiki-mcp`; Claude uses the
+repository root (`./`) while Codex uses `./plugins/osrs-wiki-mcp`. Their
+marketplace name is `sander-virula-osrs`.
 
 ## Component Contracts
 
@@ -136,12 +152,14 @@ that the server does not provide progression, GE prices, or DPS. It contains no
 scripts, assets, copied Wiki data, or extra reference files. The target is under
 500 words, with the frontmatter description carrying all trigger conditions.
 
-`agents/openai.yaml` contains only the Codex display name, short description,
-and starter prompt derived from the skill. Other clients ignore it.
+`agents/openai.yaml` contains the Codex display name, short description,
+starter prompt, and implicit-invocation policy derived from the skill. Other
+clients ignore it. The Codex copy is byte-identical to the canonical file.
 
 ### MCP process declaration
 
-The shared MCP server name is `osrs-wiki`. Codex and Claude read:
+The shared MCP server name is `osrs-wiki`. Claude reads the canonical root
+declaration and Codex reads its byte-identical compatibility mirror:
 
 ```json
 {
@@ -155,9 +173,13 @@ The shared MCP server name is `osrs-wiki`. Codex and Claude read:
 ```
 
 Gemini embeds the same server object under its required `mcpServers` field.
-The command is cross-platform `npx`, not Windows-only `npx.cmd`. There are no
-environment variables, credentials, writable data paths, or unpinned package
-selectors.
+The intended portable declaration uses `npx`, but native client launchers must
+prove it on both Windows and Ubuntu before release. A direct Node
+`child_process.spawn("npx")` call fails with `ENOENT` on this Windows host even
+though `npx.cmd` exists, so a client-specific launcher shim is a release-blocking
+fallback if any supported host exhibits the same behavior. There are no
+environment variables, credentials, writable data paths, or unpinned
+top-level package selectors.
 
 The plugin requires Node.js 24 or newer, matching the executable's enforced
 runtime floor. Startup failures remain sanitized on stderr and stdout remains
@@ -165,13 +187,16 @@ reserved for MCP protocol traffic.
 
 ### Platform manifests
 
-All manifests use the stable identifier `osrs-wiki-mcp`, version `1.1.0`, MIT
-code license, public repository URL, and accurate read-only capability copy.
+All manifests use the stable identifier `osrs-wiki-mcp`, version `1.1.0`, and
+accurate read-only capability copy. Repository and MIT-license metadata are
+included wherever the platform schema supports them.
 
-- Codex: `.codex-plugin/plugin.json` points to `./skills/` and `./.mcp.json`
-  and includes concise interface metadata and up to three realistic starter
-  prompts. It declares no app because there is no hosted MCP or ChatGPT app.
-- Claude: `.claude-plugin/plugin.json` declares the same skill and MCP paths.
+- Codex: `plugins/osrs-wiki-mcp/.codex-plugin/plugin.json` points to its local
+  byte-identical `./skills/` and `./.mcp.json` mirrors and includes concise
+  interface metadata and up to three realistic starter prompts. It declares no
+  app because there is no hosted MCP or ChatGPT app.
+- Claude: `.claude-plugin/plugin.json` declares the canonical root skill and MCP
+  paths.
   `.claude-plugin/marketplace.json` publishes the repository-root plugin with
   strict manifest ownership.
 - Gemini: `gemini-extension.json` declares the same name, version,
@@ -184,7 +209,8 @@ hosted service.
 ## Data and Control Flow
 
 1. The user installs the repository-backed plugin or extension.
-2. The client loads the shared skill lazily and starts the pinned npm package
+2. The client loads the canonical skill (or its byte-identical Codex mirror)
+   lazily and starts the pinned npm package
    as a local stdio MCP server.
 3. MCP initialization returns the server instructions and ten read-only tools.
 4. For a matching OSRS question, the skill and tool descriptions guide the
@@ -211,10 +237,12 @@ if any version or MCP declaration drifts.
 
 The npm tarball remains the runtime artifact and keeps its existing files
 allowlist; it does not need to contain Git-hosted marketplace files. The GitHub
-repository is the wrapper/marketplace source. The npm package is published
-first from the same verified commit, then the Git tag and marketplace install
-smokes are completed. This ordering ensures the exact package pin exists before
-any installed wrapper tries to start it.
+repository is the wrapper/marketplace source. The release records one verified
+commit SHA, stages the npm package from a workflow whose `headSha` matches it,
+inspects the private stage, explicitly approves the stage with maintainer 2FA,
+and tags that exact SHA. Marketplace install smokes follow only after npm makes
+the version public. This ordering ensures every artifact derives from the same
+commit and the exact package pin exists before an installed wrapper starts it.
 
 ## Migration and Duplicate Prevention
 
@@ -222,18 +250,26 @@ Installing the plugin while a direct global `osrs-wiki` MCP registration is
 still enabled can expose duplicate tools or a server-name conflict. The README
 must therefore include a migration note:
 
-1. Install and validate the plugin in an isolated test invocation.
-2. Disable or remove the old direct MCP registration.
-3. Enable the plugin and start a fresh client session.
-4. Confirm exactly one `osrs-wiki` server and ten tools are present.
+1. Install and validate the plugin in a disposable profile containing no global
+   direct MCP registration.
+2. Confirm the observed server and tools are plugin-owned, not inherited from a
+   user or project config.
+3. Remove or disable the old direct registration from each real client using
+   platform-specific documented steps; Gemini's same-name user setting can
+   otherwise override the extension server.
+4. Start a fresh client session and confirm exactly one plugin-owned
+   `osrs-wiki` server and ten tools are present.
 
 ## Reliability, Security, Privacy, and Licensing
 
-- The wrapper adds no network destination. The process still contacts only the
-  documented OSRS Wiki endpoints.
-- Exact npm pinning, npm provenance, dependency-signature verification, the
+- The wrapper adds no new Wiki data destination. `npx` may contact the npm
+  registry and use the local npm cache before the runtime contacts the
+  documented OSRS Wiki endpoints; installation documentation discloses both.
+- Exact top-level npm pinning, npm provenance, dependency-signature verification, the
   existing tarball allowlist, and repository/history secret scans remain
-  release gates.
+  release gates. The release records the resolved dependency tree because
+  transitive semver ranges can still resolve differently over time; full
+  offline reproducibility is not claimed.
 - Manifests request no credentials or environment variables and include no
   personal paths, usernames, player names, endpoints, or tokens.
 - Plugin metadata describes the server as read-only and open-world. It does not
@@ -258,7 +294,9 @@ must therefore include a migration note:
   `latest`, caret, or mutable dist-tag is accepted.
 - Claude and Codex are locally available for native validation. Gemini is not
   installed on this workstation, so its manifest receives deterministic
-  contract validation and a clean temporary-CLI install smoke before release.
+  contract validation and, only with explicit user approval, a clean pinned
+  temporary-CLI install smoke before release. All three native smokes run on
+  Windows; CI or a disposable runner covers Ubuntu launcher behavior.
 
 ## Testing Strategy
 
@@ -273,13 +311,15 @@ list, call, cancellation, and reliability tests must remain unchanged and pass.
 Add offline Node tests that parse every JSON manifest and assert:
 
 - names and versions are synchronized;
-- Codex and Claude reference the same `.mcp.json` and `skills/` directory;
+- the canonical and Codex-mirrored `.mcp.json`, `SKILL.md`, and `openai.yaml`
+  files are byte-identical;
 - Gemini's MCP declaration deep-equals the shared declaration;
 - the server is exactly `npx --yes osrs-wiki-mcp@1.1.0`;
 - no declaration contains `env`, secrets, absolute personal paths, progression
   claims, mutable package ranges, hooks, apps, monitors, or a second server;
-- marketplace entries resolve to the repository root and identify the same
-  plugin exactly once.
+- the Claude marketplace resolves to the repository root, the Codex marketplace
+  resolves to the non-root compatibility directory, and each identifies the
+  same plugin exactly once.
 
 Run the official Codex plugin validator and `claude plugin validate --strict .`
 in addition to the repository tests. Validate the Gemini manifest against the
@@ -287,17 +327,22 @@ current documented schema and exercise a temporary local extension install.
 
 ### Skill behavior
 
-Skill development follows a baseline-first evaluation:
+Skill development follows a controlled baseline-first evaluation:
 
-- run fresh lower-tier agent sessions with the raw MCP but without the skill;
+- use one deterministic synthetic stdio MCP in both arms, with no live Wiki;
+- run fresh lower-tier agent sessions with identical plugin configurations that
+  differ only by the presence of the target skill;
 - record tool-selection or answer-shape failures;
 - write the minimum skill that addresses observed failures;
-- rerun the same prompts with the plugin and compare traces/results;
+- use diagnostic cases only for authoring, then freeze the skill and evaluate
+  separate held-out cases with multiple runs per arm;
+- pin and record the exact model slug and CLI version, preregister the rubric,
+  compare actual tool traces/results, and hash sanitized evidence;
 - have the primary agent inspect every result rather than accepting an
   automated score alone.
 
-The fixed evaluation set contains five positive scenarios and three negative
-or boundary scenarios:
+The synthetic evaluation set contains diagnostic and held-out variants of five
+positive scenarios and three negative or boundary scenarios:
 
 1. bounded item acquisition overview with recovery to complete drops;
 2. exact quest requirements without player-readiness claims;
@@ -308,9 +353,11 @@ or boundary scenarios:
 7. request for account progression identified as outside scope;
 8. request for DPS identified as outside scope.
 
-The skill passes when the plugin arm selects valid tools, follows warnings,
-avoids unsupported claims, and includes provenance more consistently than the
-no-skill arm. Eval outputs are temporary evidence and are not committed.
+The skill passes only on the frozen held-out rubric when the plugin arm selects
+valid tools, follows synthetic warning and pagination signals, avoids
+unsupported claims, and includes provenance more consistently than the
+no-skill arm. Raw traces stay outside the repository; a sanitized summary
+records the environment, aggregate scores, and trace hashes.
 
 ### Release and install smokes
 
@@ -325,8 +372,10 @@ audit, and scans. After `1.1.0` is published from the verified commit:
 - install the Gemini extension with a pinned temporary CLI, confirm discovery,
   and make one live `search_wiki` call;
 - perform no more than one live Wiki query per platform smoke;
+- prove the launcher on native Windows and Ubuntu before publication; introduce
+  and retest a platform-specific shim if bare `npx` fails in any client;
 - complete the local direct-MCP-to-plugin cutover only after all supported
-  installed clients pass.
+  installed clients pass and the observed server origin is plugin-owned.
 
 ## Documentation
 
@@ -348,13 +397,14 @@ The design is complete when:
 
 1. all three platforms load the same ten-tool npm runtime at one exact version;
 2. MCP initialization returns concise server instructions;
-3. the shared skill improves the fixed baseline evaluations without inventing
+3. the canonical skill improves controlled held-out evaluations without inventing
    unsupported capabilities;
 4. manifest and marketplace validators pass with no warnings;
 5. the full existing server suite and package gates remain green on Windows and
    Ubuntu;
-6. post-publication install smokes show exactly one server and ten tools in
-   Codex, Claude, and Gemini;
+6. pre- and post-publication native install smokes show exactly one plugin-owned
+   server and ten tools in Codex, Claude, and Gemini on Windows, with launcher
+   behavior also covered on Ubuntu;
 7. migration guidance prevents simultaneous direct and plugin-provided
    registrations;
 8. no secrets, personal configuration, duplicated server code, or Wiki-derived
