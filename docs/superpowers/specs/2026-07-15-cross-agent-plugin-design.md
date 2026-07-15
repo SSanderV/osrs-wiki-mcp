@@ -1,6 +1,6 @@
 # OSRS Wiki MCP Cross-Agent Plugin Design
 
-**Status:** Proposed for independent reviewer-agent approval
+**Status:** Approved for implementation by an independent reviewer agent
 **Date:** 2026-07-15
 **Repository:** `SanderVirula/osrs-wiki-mcp`
 
@@ -173,13 +173,13 @@ declaration and Codex reads its byte-identical compatibility mirror:
 ```
 
 Gemini embeds the same server object under its required `mcpServers` field.
-The intended portable declaration uses `npx`, but native client launchers must
-prove it on both Windows and Ubuntu before release. A direct Node
-`child_process.spawn("npx")` call fails with `ENOENT` on this Windows host even
-though `npx.cmd` exists, so a client-specific launcher shim is a release-blocking
-fallback if any supported host exhibits the same behavior. There are no
-environment variables, credentials, writable data paths, or unpinned
-top-level package selectors.
+The intended portable declaration uses `npx`, but all three native client
+launchers must prove it on Windows and a generic process-launch probe must pass
+on Ubuntu before release. A direct Node `child_process.spawn("npx")` call fails
+with `ENOENT` on this Windows host even though `npx.cmd` exists. If a supported
+client behaves the same way, stop and revise and re-review the launcher
+architecture. There are no environment variables, credentials, writable data
+paths, or unpinned top-level package selectors.
 
 The plugin requires Node.js 24 or newer, matching the executable's enforced
 runtime floor. Startup failures remain sanitized on stderr and stdout remains
@@ -376,8 +376,9 @@ audit, and scans. After `1.1.0` is published from the verified commit:
 - install the Gemini extension with a pinned temporary CLI, confirm discovery,
   and make one live `search_wiki` call;
 - perform no more than one live Wiki query per platform smoke;
-- prove the launcher on native Windows and Ubuntu before publication; introduce
-  and retest a platform-specific shim if bare `npx` fails in any client;
+- prove all three native client launchers on Windows and a generic process
+  launch on Ubuntu before publication; revise and re-review the architecture if
+  bare `npx` fails in any supported client;
 - complete the local direct-MCP-to-plugin cutover only after all supported
   installed clients pass and the observed server origin is plugin-owned.
 
