@@ -10,7 +10,15 @@ import { ToolFailure } from "../src/errors.ts";
 import { Deadline, systemClock, type Clock } from "../src/http/deadline.ts";
 import { JsonHttpClient } from "../src/http/json-http-client.ts";
 import { createServer, type WikiClientLike } from "../src/server.ts";
-import { WikiClient } from "../src/wiki/wiki-client.ts";
+import {
+  WikiClient,
+  type BucketPage,
+  type BucketQuerySpec,
+  type BucketScan,
+  type ParsedPage,
+  type ParseProp,
+  type RawBucketRow,
+} from "../src/wiki/wiki-client.ts";
 import { FakeClock } from "./helpers/fake-clock.ts";
 import { deferred } from "./helpers/fake-fetch.ts";
 
@@ -34,8 +42,29 @@ const source: SourceRef = {
   fetchedAt: "2026-07-15T00:00:00.000Z",
 };
 
-function stubWikiClient(overrides: Partial<WikiClientLike> = {}): WikiClientLike {
+function pageSource(title: string): SourceRef {
   return {
+    kind: "page",
+    title,
+    url: `https://oldschool.runescape.wiki/w/${title.replaceAll(" ", "_")}`,
+    pageId: 1,
+    revisionId: 2,
+    revisionUrl: `https://oldschool.runescape.wiki/w/index.php?title=${encodeURIComponent(title)}&oldid=2`,
+    fetchedAt: source.fetchedAt,
+  };
+}
+
+function bucketSource(bucket: string, title?: string): SourceRef {
+  return {
+    kind: "bucket",
+    ...(title === undefined ? {} : { title }),
+    url: `https://oldschool.runescape.wiki/api.php?action=bucket&query=${bucket}`,
+    fetchedAt: source.fetchedAt,
+  };
+}
+
+function stubWikiClient(overrides: Partial<WikiClientLike> = {}): WikiClientLike {
+  const client = {
     async search(_query, _limit, offset) {
       return {
         results: [
@@ -48,41 +77,121 @@ function stubWikiClient(overrides: Partial<WikiClientLike> = {}): WikiClientLike
         ],
         total: 1,
         offset,
+        fetchedAt: source.fetchedAt,
         source,
       };
     },
-    async parsePage(title, props, section) {
-      const requestedProps = props as readonly string[];
+    async parsePage(
+      title: string,
+      props: readonly ParseProp[],
+      section: string | undefined,
+    ): Promise<ParsedPage> {
+      const itemWikitext = `{{Infobox Item
+|name=Test sword
+|examine=An invented test item.
+|members=No
+|value=100
+}}
+An invented item used only by tests.
+{{ItemSpawnLine|name=Test sword|location=Test field|100,200|plane=0|mapID=0}}`;
+      const wikitext = title === "Test sword" ? itemWikitext : "An invented Wiki page.";
+      const exactSource = pageSource(title);
       return {
         title,
         pageId: 1,
         revisionId: 2,
-        ...(requestedProps.includes("wikitext") ? { wikitext: `Synthetic content ${section ?? ""}` } : {}),
-        ...(requestedProps.includes("sections")
+        revisionUrl: exactSource.revisionUrl!,
+        ...(props.includes("wikitext") ? { wikitext: `${wikitext}${section === undefined ? "" : `\nSection ${section}`}` } : {}),
+        ...(props.includes("sections")
           ? { sections: [{ index: "1", line: "Synthetic section", level: "2" }] }
           : {}),
-        source: { ...source, kind: "page", title },
+        source: exactSource,
+        fetchedAt: source.fetchedAt,
       };
     },
-    async bucketAll() {
+    async bucketAll(spec: BucketQuerySpec): Promise<BucketScan> {
+      let rows: RawBucketRow[] = [];
+      if (spec.bucket === "storeline") {
+        rows = [{
+          data: {
+            page_name: "Test shop",
+            sold_item: "Test sword",
+            sold_item_json: JSON.stringify({
+              "Sold by": "Test merchant",
+              "Store location": "Test town",
+              "Store stock": "5",
+              "Store sell price": "100 coins",
+            }),
+          },
+          source: bucketSource(spec.bucket, "Test shop"),
+        }];
+      } else if (spec.bucket === "dropsline") {
+        rows = [{
+          data: {
+            page_name: "Test beast",
+            item_name: "Test sword",
+            drop_json: JSON.stringify({
+              "Dropped from": "Test beast",
+              Level: "10",
+              Quantity: "1",
+              Rarity: "Always",
+            }),
+          },
+          source: bucketSource(spec.bucket, "Test beast"),
+        }];
+      } else if (spec.bucket === "recipe") {
+        rows = [{
+          data: {
+            page_name: "Test sword",
+            production_json: JSON.stringify({
+              materials: [{ name: "Test bar", quantity: 1 }],
+              skills: [{ name: "Smithing", level: 1 }],
+              output: { name: "Test sword", quantity: 1 },
+            }),
+          },
+          source: bucketSource(spec.bucket, "Test sword"),
+        }];
+      } else if (spec.bucket === "infobox_monster") {
+        rows = [{
+          data: {
+            page_name: "Test beast",
+            page_name_sub: "Test beast#Standard",
+            default_version: true,
+            name: "Test beast",
+            combat_level: 10,
+            hitpoints: 20,
+          },
+          source: bucketSource(spec.bucket, "Test beast"),
+        }];
+      }
       return {
-        rows: [],
-        rawRowsExamined: 0,
-        hitSafetyCap: false,
+        rows,
+        sources: [bucketSource(spec.bucket)],
+        rawRowsExamined: rows.length,
         incomplete: false,
-        warnings: [],
-        requestSources: [{ ...source, kind: "bucket" }],
+        rawCapReached: false,
       };
     },
-    async bucketPage() {
+    async bucketPage(): Promise<BucketPage> {
+      const requestSource = bucketSource("quest");
       return {
-        rows: [],
-        rawRowsExamined: 0,
-        source: { ...source, kind: "bucket" },
+        rows: [{
+          data: {
+            page_name: "Example quest",
+            description: "An invented quest.",
+            requirements: "* <span data-skill=\"Magic\" data-level=\"1\">1 Magic</span>",
+            items_required: "* Test sword",
+            json: "{}",
+          },
+          source: bucketSource("quest", "Example quest"),
+        }],
+        fetchedAt: source.fetchedAt,
+        fromCache: false,
+        source: requestSource,
       };
     },
-    ...overrides,
-  } as WikiClientLike;
+  } satisfies WikiClientLike;
+  return Object.assign(client, overrides);
 }
 
 async function connectedClient(wikiClient: WikiClientLike, clock: Clock = systemClock) {
@@ -115,6 +224,20 @@ test("tools/list exposes exactly ten read-only, open-world tools with input and 
       assert.equal(tool.annotations?.openWorldHint, true, tool.name);
       assert.match(tool.description ?? "", /Wiki|wiki/u, tool.name);
     }
+    const search = listed.tools.find(({ name }) => name === "search_wiki");
+    assert.ok(search);
+    assert.deepEqual(search.inputSchema.required, ["query"]);
+    assert.deepEqual(Object.keys(search.inputSchema.properties ?? {}), [
+      "query",
+      "limit",
+      "offset",
+    ]);
+    const searchProperties = search.inputSchema.properties as Record<
+      string,
+      Record<string, unknown>
+    >;
+    assert.equal(searchProperties.limit?.default, 5);
+    assert.equal(searchProperties.offset?.default, 0);
   } finally {
     await connection.close();
   }
@@ -142,6 +265,33 @@ test("a successful call has matching readable and schema-validated structured co
     });
     assert.equal(result.content[0]?.type, "text");
     assert.match(result.content[0]?.type === "text" ? result.content[0].text : "", /Synthetic result/u);
+  } finally {
+    await connection.close();
+  }
+});
+
+test("every registered tool returns content and structured content through the MCP boundary", async () => {
+  const connection = await connectedClient(stubWikiClient());
+  const calls = [
+    { name: "search_wiki", arguments: { query: "synthetic" } },
+    { name: "get_wiki_page", arguments: { title: "Test sword" } },
+    { name: "get_wiki_sections", arguments: { title: "Test sword" } },
+    { name: "get_wiki_section", arguments: { title: "Test sword", section: 1 } },
+    { name: "get_item_info", arguments: { item: "Test sword" } },
+    { name: "find_shop", arguments: { item: "Test sword" } },
+    { name: "find_drop_sources", arguments: { item: "Test sword" } },
+    { name: "get_item_sources", arguments: { item: "Test sword" } },
+    { name: "get_quest_requirements", arguments: { quest: "Example quest" } },
+    { name: "get_monster_info", arguments: { monster: "Test beast" } },
+  ] as const;
+
+  try {
+    for (const call of calls) {
+      const result = await connection.client.callTool(call) as CallToolResult;
+      assert.equal(result.isError, undefined, call.name);
+      assert.ok(result.structuredContent, call.name);
+      assert.equal(result.content[0]?.type, "text", call.name);
+    }
   } finally {
     await connection.close();
   }
