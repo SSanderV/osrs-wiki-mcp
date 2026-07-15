@@ -238,16 +238,23 @@ held-out prompt hashes with a small Node assertion.
 - [ ] **Step 4: Create two isolated, otherwise identical eval plugins**
 
 Under a disposable directory outside the repository, create `baseline/` and
-`treatment/` plugin roots with byte-identical `.claude-plugin/plugin.json` and
-`.mcp.json`. Both use the same plugin name, point to the same absolute
-`stub-server.mjs`, and contain no other MCPs. Only `treatment/` may receive the
-target skill later. Run from a disposable project directory and pass
-`--setting-sources project`, `--strict-mcp-config`,
-`--no-session-persistence`, and `--disable-slash-commands` so user/project MCPs
-or skills cannot leak into either arm.
+`treatment/` plugin roots with byte-identical `.claude-plugin/plugin.json`
+files and the same plugin name. Create one separate common MCP config pointing
+to the same absolute `stub-server.mjs`; pass it to both arms with
+`--mcp-config`. Only `treatment/` may receive the target skill later. Run from a
+disposable project directory and pass `--setting-sources project`,
+`--strict-mcp-config`, and `--no-session-persistence` so user/project MCPs or
+skills cannot leak into either arm.
+
+Do **not** pass `--disable-slash-commands`: current Claude Code documents that
+flag as disabling all skills, including the treatment. Because
+`--strict-mcp-config` ignores plugin-discovered MCPs, the shared synthetic MCP
+must be supplied explicitly with `--mcp-config`.
 
 Validate both disposable plugins strictly and record SHA-256 hashes proving
-their manifests and MCP config are identical.
+their manifests are identical. List the synthetic server's ten
+origin-qualified MCP tool IDs and freeze that exact list for `--tools`, so no
+built-in or unrelated tools are available in either arm.
 
 - [ ] **Step 5: Run the diagnostic no-skill baseline through real tools**
 
@@ -256,7 +263,7 @@ one fresh baseline session with the exact model slug and capture verbose
 stream-JSON outside the repository:
 
 ```powershell
-claude -p --model claude-haiku-4-5-20251001 --effort low --plugin-dir $baselinePlugin --strict-mcp-config --setting-sources project --no-session-persistence --disable-slash-commands --output-format stream-json --verbose $case.prompt
+claude -p --model claude-haiku-4-5-20251001 --effort low --plugin-dir $baselinePlugin --mcp-config $evalMcp --strict-mcp-config --setting-sources project --no-session-persistence --tools $frozenEvalToolIds --output-format stream-json --verbose $case.prompt
 ```
 
 The model receives only the request and normal MCP discovery; do not inject the
