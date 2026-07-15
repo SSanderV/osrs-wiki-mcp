@@ -83,10 +83,12 @@ export interface BucketPage {
   rows: RawBucketRow[];
   fetchedAt: string;
   fromCache: boolean;
+  source: SourceRef;
 }
 
 export interface BucketScan {
   rows: RawBucketRow[];
+  sources: SourceRef[];
   rawRowsExamined: number;
   incomplete: boolean;
   rawCapReached: boolean;
@@ -273,6 +275,11 @@ export class WikiClient {
       })),
       fetchedAt: envelope.fetchedAt,
       fromCache: envelope.fromCache,
+      source: SourceRefSchema.parse({
+        kind: "bucket",
+        url,
+        fetchedAt: envelope.fetchedAt,
+      }),
     };
   }
 
@@ -281,21 +288,24 @@ export class WikiClient {
     context: WikiRequestContext,
   ): Promise<BucketScan> {
     const rows: RawBucketRow[] = [];
+    const sources: SourceRef[] = [];
 
     for (let rawOffset = 0; rawOffset < BUCKET_RAW_CAP; rawOffset += BUCKET_PAGE_SIZE) {
       if (context.signal?.aborted) throw abortReason(context.signal);
       if (context.toolDeadline.expired()) {
         if (rows.length === 0) throw timeoutFailure();
-        return partialBucketScan(rows, rawOffset);
+        return partialBucketScan(rows, sources, rawOffset);
       }
 
       try {
         const query = buildBucketQuery(spec, BUCKET_PAGE_SIZE, rawOffset);
         const page = await this.bucketPage(query, context);
+        sources.push(page.source);
         rows.push(...page.rows);
         if (page.rows.length < BUCKET_PAGE_SIZE) {
           return {
             rows,
+            sources,
             rawRowsExamined: rows.length,
             incomplete: false,
             rawCapReached: false,
@@ -304,12 +314,13 @@ export class WikiClient {
       } catch (error) {
         if (context.signal?.aborted) throw error;
         if (rows.length === 0) throw error;
-        return partialBucketScan(rows, rawOffset);
+        return partialBucketScan(rows, sources, rawOffset);
       }
     }
 
     return {
       rows,
+      sources,
       rawRowsExamined: rows.length,
       incomplete: true,
       rawCapReached: true,
@@ -461,9 +472,14 @@ function bucketRowPageName(row: unknown): string | undefined {
   return title.length > 0 ? title : undefined;
 }
 
-function partialBucketScan(rows: RawBucketRow[], failedRawOffset: number): BucketScan {
+function partialBucketScan(
+  rows: RawBucketRow[],
+  sources: SourceRef[],
+  failedRawOffset: number,
+): BucketScan {
   return {
     rows,
+    sources,
     rawRowsExamined: rows.length,
     incomplete: true,
     rawCapReached: false,

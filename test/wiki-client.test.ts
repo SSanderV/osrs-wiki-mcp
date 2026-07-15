@@ -184,6 +184,8 @@ test("Bucket pages retain malformed rows for domain-level warnings", async () =>
     page.rows[2]?.source.url,
     "https://oldschool.runescape.wiki/w/Test_beast",
   );
+  assert.equal(page.source.kind, "bucket");
+  assert.equal(page.source.fetchedAt, SYNTHETIC_FETCHED_AT);
 });
 
 test("Bucket pagination uses pages of 500 and cache replay preserves fetch age", async () => {
@@ -210,6 +212,7 @@ test("Bucket pagination uses pages of 500 and cache replay preserves fetch age",
   assert.equal(fetches, 2);
   assert.equal(first.rows.length, 502);
   assert.equal(first.rawRowsExamined, 502);
+  assert.equal(first.sources.length, 2);
   assert.equal(first.incomplete, false);
   assert.equal(first.rawCapReached, false);
   assert.equal(second.rows.length, 502);
@@ -240,6 +243,7 @@ test("Bucket pagination stops at the 10,000 raw-row cap", async () => {
   assert.equal(result.rawRowsExamined, 10_000);
   assert.equal(result.incomplete, true);
   assert.equal(result.rawCapReached, true);
+  assert.equal(result.sources.length, 20);
   assert.match(result.warning ?? "", /10,000 raw rows/);
   assert.equal("failedRawOffset" in result, false);
 });
