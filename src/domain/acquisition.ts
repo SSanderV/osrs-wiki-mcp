@@ -1,7 +1,7 @@
 import * as z from "zod/v4";
 
 import { buildProvenance, type Provenance, type SourceRef } from "../contracts.ts";
-import { ToolFailure } from "../errors.ts";
+import { ToolFailure, type ToolErrorCode } from "../errors.ts";
 import type {
   BucketQuerySpec,
   BucketScan,
@@ -238,6 +238,7 @@ export function normalizeShopRows(
       value.sellPrice,
       value.buyPrice,
       value.currency,
+      value.restock,
       value.notes,
     ]);
     if (seen.has(identity)) continue;
@@ -601,8 +602,14 @@ export async function getItemSources(
   }
 
   if (coverage.length === 0) {
+    const attempts = [drops, shops, recipes, groundSpawns];
+    const failureCode: ToolErrorCode = attempts.every(
+      ({ failureCode: code }) => code === "UPSTREAM_TIMEOUT",
+    )
+      ? "UPSTREAM_TIMEOUT"
+      : "UPSTREAM_UNAVAILABLE";
     throw new ToolFailure(
-      "UPSTREAM_UNAVAILABLE",
+      failureCode,
       "Every item-source category was unavailable; retry the same tool call.",
     );
   }
@@ -635,6 +642,7 @@ interface OverviewAttempt<T> {
   category: ItemSourceCategory<T>;
   sources: SourceRef[];
   succeeded: boolean;
+  failureCode?: ToolErrorCode;
 }
 
 async function attemptOverviewCategory<T>(
@@ -656,7 +664,9 @@ async function attemptOverviewCategory<T>(
       warnings.push(
         specializedTool
           ? `${label} truncated at ${page.returned} results; use ${specializedTool} with offset ${page.nextOffset} for the complete list.`
-          : `${label} truncated at ${page.returned} results; increase perCategoryLimit up to 100.`,
+          : page.limit >= MAX_PAGE_LIMIT
+            ? `${label} truncated at ${page.returned} results; the overview is already at the maximum of 100 and has no pagination tool.`
+            : `${label} truncated at ${page.returned} results; increase perCategoryLimit up to 100.`,
       );
     }
     return {
@@ -681,6 +691,7 @@ async function attemptOverviewCategory<T>(
       },
       sources: [],
       succeeded: false,
+      failureCode: code,
     };
   }
 }

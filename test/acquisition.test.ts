@@ -116,6 +116,28 @@ test("shop normalization skips malformed JSON, deduplicates, and sorts stably", 
   assert.deepEqual(normalized.warnings, ["Skipped 1 malformed upstream shop row."]);
 });
 
+test("shop rows that differ only by restock time remain distinct", () => {
+  const normalized = normalizeShopRows([
+    row("Test shop", {
+      sold_item_json: JSON.stringify({
+        "Sold by": "Test merchant",
+        "Restock time": "10 ticks",
+      }),
+    }),
+    row("Test shop", {
+      sold_item_json: JSON.stringify({
+        "Sold by": "Test merchant",
+        "Restock time": "20 ticks",
+      }),
+    }),
+  ]);
+
+  assert.deepEqual(
+    normalized.entries.map(({ value }) => value.restock),
+    ["10 ticks", "20 ticks"],
+  );
+});
+
 test("drop normalization skips malformed rows, deduplicates, and sorts stably", () => {
   const normalized = normalizeDropRows([
     row("Test beast B", {
@@ -537,6 +559,46 @@ test("all category failures produce a tool error instead of an empty success", a
     (error: unknown) =>
       error instanceof ToolFailure && error.code === "UPSTREAM_UNAVAILABLE",
   );
+});
+
+test("all category timeouts preserve the UPSTREAM_TIMEOUT code", async () => {
+  const timeout = new ToolFailure("UPSTREAM_TIMEOUT", "synthetic timeout");
+  const timedOutClient: ItemSourcesWikiClient = {
+    async bucketAll() {
+      throw timeout;
+    },
+    async parsePage() {
+      throw timeout;
+    },
+  };
+
+  await assert.rejects(
+    getItemSources(timedOutClient, { item: "Test sword" }, context()),
+    (error: unknown) =>
+      error instanceof ToolFailure && error.code === "UPSTREAM_TIMEOUT",
+  );
+});
+
+test("maximum recipe overview truncation does not suggest increasing the limit", async () => {
+  const recipeRows = Array.from({ length: 101 }, (_unused, index) =>
+    row(`Test recipe ${index}`, {
+      page_name: "Test sword",
+      production_json: JSON.stringify({
+        materials: [{ name: `Test material ${index}`, quantity: 1 }],
+        skills: [],
+        output: { name: "Test sword", quantity: 1 },
+      }),
+    }),
+  );
+  const result = await getItemSources(
+    itemSourcesClient({ scans: { recipe: completeScan(recipeRows) } }),
+    { item: "Test sword", perCategoryLimit: 100 },
+    context(),
+  );
+
+  assert.equal(result.recipes.truncated, true);
+  assert.doesNotMatch(result.recipes.warnings.join(" "), /increase perCategoryLimit/iu);
+  assert.match(result.recipes.warnings.join(" "), /maximum/iu);
 });
 
 test("caller cancellation escapes instead of degrading into category warnings", async () => {
