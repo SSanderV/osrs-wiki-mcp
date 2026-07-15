@@ -954,8 +954,19 @@ Confirm the workflow uses Node 24 and npm CLI `>=11.15.0` (pin npm CLI in the
 workflow if necessary), then trigger it:
 
 ```powershell
+$dispatchStartedAt = (Get-Date).ToUniversalTime()
 gh workflow run publish.yml -f release_mode=staged --ref main
-$runId = gh run list --workflow publish.yml --event workflow_dispatch --commit $releaseSha --limit 10 --json databaseId,headSha,event --jq '.[0].databaseId'
+$matchingRun = $null
+for ($attempt = 0; $attempt -lt 30 -and $null -eq $matchingRun; $attempt++) {
+  $runs = gh run list --workflow publish.yml --event workflow_dispatch --commit $releaseSha --limit 10 --json databaseId,headSha,event,createdAt | ConvertFrom-Json
+  $matchingRun = $runs |
+    Where-Object { ([datetime]$_.createdAt).ToUniversalTime() -ge $dispatchStartedAt } |
+    Sort-Object createdAt -Descending |
+    Select-Object -First 1
+  if ($null -eq $matchingRun) { Start-Sleep -Seconds 2 }
+}
+if ($null -eq $matchingRun) { throw 'No matching release workflow appeared' }
+$runId = $matchingRun.databaseId
 gh run watch $runId --exit-status
 $run = gh run view $runId --json headSha,event,conclusion | ConvertFrom-Json
 if ($run.headSha -ne $releaseSha -or $run.event -ne 'workflow_dispatch' -or $run.conclusion -ne 'success') { throw 'Release workflow is not bound to the captured SHA' }
