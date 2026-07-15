@@ -10,6 +10,7 @@ import { createServer } from "./server.ts";
 import { WikiClient } from "./wiki/wiki-client.ts";
 
 const REPOSITORY_URL = "https://github.com/SanderVirula/osrs-wiki-mcp";
+const NODE_UPGRADE_MESSAGE = "osrs-wiki-mcp requires Node.js 24 or newer.\n";
 
 interface PackageJson {
   version: string;
@@ -33,6 +34,31 @@ export function writeFatalStartupError(
   write("osrs-wiki-mcp failed to start.\n");
 }
 
+export async function runExecutable({
+  nodeVersion,
+  start,
+  write = (value) => process.stderr.write(value),
+}: {
+  nodeVersion: string;
+  start(): Promise<void>;
+  write?: (value: string) => void;
+}): Promise<0 | 1> {
+  try {
+    assertSupportedNodeVersion(nodeVersion);
+  } catch {
+    write(NODE_UPGRADE_MESSAGE);
+    return 1;
+  }
+
+  try {
+    await start();
+    return 0;
+  } catch (error) {
+    writeFatalStartupError(error, write);
+    return 1;
+  }
+}
+
 export async function main(): Promise<void> {
   assertSupportedNodeVersion(process.versions.node);
   const packageJson = createRequire(import.meta.url)("../package.json") as PackageJson;
@@ -46,8 +72,10 @@ const isExecutable =
   process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
 
 if (isExecutable) {
-  void main().catch((error: unknown) => {
-    writeFatalStartupError(error);
-    process.exitCode = 1;
+  void runExecutable({
+    nodeVersion: process.versions.node,
+    start: main,
+  }).then((exitCode) => {
+    process.exitCode = exitCode;
   });
 }

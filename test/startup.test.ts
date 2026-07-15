@@ -5,6 +5,7 @@ import test from "node:test";
 import {
   assertSupportedNodeVersion,
   createUserAgent,
+  runExecutable,
   writeFatalStartupError,
 } from "../src/index.ts";
 
@@ -15,6 +16,24 @@ test("startup enforces the declared Node 24 baseline", () => {
     () => assertSupportedNodeVersion("23.11.0"),
     /Node\.js 24 or newer/u,
   );
+});
+
+test("the executable prints the static upgrade message before attempting startup", async () => {
+  let stderr = "";
+  let started = false;
+  const exitCode = await runExecutable({
+    nodeVersion: "23.11.0",
+    async start() {
+      started = true;
+    },
+    write(value) {
+      stderr += value;
+    },
+  });
+
+  assert.equal(exitCode, 1);
+  assert.equal(started, false);
+  assert.equal(stderr, "osrs-wiki-mcp requires Node.js 24 or newer.\n");
 });
 
 test("the Wiki User-Agent is derived from the package version and public repository", () => {
