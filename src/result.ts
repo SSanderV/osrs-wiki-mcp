@@ -37,8 +37,13 @@ export function capText(value: string, maximum: number, warning: string): Capped
   if (!Number.isInteger(maximum) || maximum < 0) {
     throw new RangeError("Text cap must be a non-negative integer.");
   }
-  if (value.length <= maximum) return { value, truncated: false, warnings: [] };
-  return { value: value.slice(0, maximum), truncated: true, warnings: [warning] };
+  const characters = [...value];
+  if (characters.length <= maximum) return { value, truncated: false, warnings: [] };
+  return {
+    value: characters.slice(0, maximum).join(""),
+    truncated: true,
+    warnings: [warning],
+  };
 }
 
 export interface CappedArray<T> {

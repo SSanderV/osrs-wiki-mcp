@@ -80,4 +80,9 @@ test("cap helpers disclose every truncation", () => {
     truncated: true,
     warnings: ["Rows truncated."],
   });
+  assert.deepEqual(capText("😀😀😀", 2, "Unicode text truncated."), {
+    value: "😀😀",
+    truncated: true,
+    warnings: ["Unicode text truncated."],
+  });
 });

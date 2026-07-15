@@ -48,6 +48,7 @@ export interface SearchResult {
   offset: number;
   nextOffset?: number;
   fetchedAt: string;
+  source: SourceRef;
 }
 
 export type ParseProp = "wikitext" | "sections" | "text";
@@ -178,6 +179,11 @@ export class WikiClient {
       offset,
       ...(nextOffset === undefined ? {} : { nextOffset }),
       fetchedAt: envelope.fetchedAt,
+      source: SourceRefSchema.parse({
+        kind: "search",
+        url,
+        fetchedAt: envelope.fetchedAt,
+      }),
     };
   }
 
