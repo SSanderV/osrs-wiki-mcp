@@ -1,6 +1,6 @@
 # OSRS Wiki MCP Cross-Agent Plugin Design
 
-**Status:** Proposed for independent Claude Fable review  
+**Status:** Proposed for independent reviewer-agent approval
 **Date:** 2026-07-15  
 **Repository:** `SanderVirula/osrs-wiki-mcp`
 
@@ -227,11 +227,6 @@ must therefore include a migration note:
 3. Enable the plugin and start a fresh client session.
 4. Confirm exactly one `osrs-wiki` server and ten tools are present.
 
-For this workstation, the existing direct Claude and Codex registrations are
-removed only after the published plugin succeeds in both clients. Recovery
-configuration and shared durable memory are updated in that same cutover so a
-restore does not recreate the obsolete direct registration.
-
 ## Reliability, Security, Privacy, and Licensing
 
 - The wrapper adds no network destination. The process still contacts only the
@@ -360,8 +355,8 @@ The design is complete when:
    Ubuntu;
 6. post-publication install smokes show exactly one server and ten tools in
    Codex, Claude, and Gemini;
-7. the old direct Claude/Codex registrations are removed only after plugin
-   verification and recovery no longer recreates them;
+7. migration guidance prevents simultaneous direct and plugin-provided
+   registrations;
 8. no secrets, personal configuration, duplicated server code, or Wiki-derived
    reference data enter the repository or npm tarball.
 
