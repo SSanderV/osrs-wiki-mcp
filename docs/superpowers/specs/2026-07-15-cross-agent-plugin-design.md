@@ -238,11 +238,15 @@ if any version or MCP declaration drifts.
 The npm tarball remains the runtime artifact and keeps its existing files
 allowlist; it does not need to contain Git-hosted marketplace files. The GitHub
 repository is the wrapper/marketplace source. The release records one verified
-commit SHA, stages the npm package from a workflow whose `headSha` matches it,
-inspects the private stage, explicitly approves the stage with maintainer 2FA,
-and tags that exact SHA. Marketplace install smokes follow only after npm makes
-the version public. This ordering ensures every artifact derives from the same
-commit and the exact package pin exists before an installed wrapper starts it.
+commit SHA. The bound workflow packs once, applies the full tarball scan and
+smoke test to that exact file, uploads the tarball plus npm metadata, SHA-256,
+and release SHA as an immutable short-lived workflow artifact, then submits the
+same tarball to npm staging. A maintainer downloads both copies, verifies exact
+hash/metadata equality, inspects the private stage, explicitly approves it with
+2FA, and tags that exact SHA. Marketplace install smokes follow only after npm
+makes the version public. This ordering ensures every artifact derives from the
+same commit and the exact package pin exists before an installed wrapper starts
+it.
 
 ## Migration and Duplicate Prevention
 
@@ -420,3 +424,5 @@ The design is complete when:
 - [Claude Code: MCP](https://code.claude.com/docs/en/mcp)
 - [Gemini CLI: Extension reference](https://geminicli.com/docs/extensions/reference/)
 - [Gemini CLI: Build extensions](https://geminicli.com/docs/extensions/writing-extensions/)
+- [GitHub Actions: Store and share workflow artifacts](https://docs.github.com/en/actions/tutorials/store-and-share-data)
+- [npm: Staged publishing](https://docs.npmjs.com/staged-publishing/)

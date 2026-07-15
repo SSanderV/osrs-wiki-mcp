@@ -34,9 +34,10 @@ publishing.
 - Start exactly `npx --yes osrs-wiki-mcp@1.1.0`; never use `latest`, a range,
   an unpinned global binary, or a second server implementation.
 - Treat bare `npx` as provisional until native Codex, Claude, and Gemini startup
-  tests pass on Windows and Ubuntu. Direct Node spawning reproduces `ENOENT` on
-  this Windows host; if a client does the same, add and verify the smallest
-  host-specific launcher shim before publication.
+  tests pass on Windows and a generic process-launch probe passes on Ubuntu.
+  Direct Node spawning reproduces `ENOENT` on this Windows host; if a supported
+  client does the same, revise and re-review the launcher architecture before
+  publication.
 - Require Node.js 24 or newer on every platform.
 - Preserve exactly ten read-only Wiki tools and all existing schemas, warnings,
   provenance, reliability budgets, and licensing behavior.
@@ -253,8 +254,10 @@ must be supplied explicitly with `--mcp-config`.
 
 Validate both disposable plugins strictly and record SHA-256 hashes proving
 their manifests are identical. List the synthetic server's ten
-origin-qualified MCP tool IDs and freeze that exact list for `--tools`, so no
-built-in or unrelated tools are available in either arm.
+origin-qualified MCP tool IDs and freeze that exact list for `--allowedTools`.
+Restrict built-ins with `--tools Skill`: the treatment needs Claude's built-in
+`Skill` tool to invoke the plugin skill, while no unrelated built-in tools are
+available in either arm.
 
 - [ ] **Step 5: Run the diagnostic no-skill baseline through real tools**
 
@@ -263,13 +266,19 @@ one fresh baseline session with the exact model slug and capture verbose
 stream-JSON outside the repository:
 
 ```powershell
-claude -p --model claude-haiku-4-5-20251001 --effort low --plugin-dir $baselinePlugin --mcp-config $evalMcp --strict-mcp-config --setting-sources project --no-session-persistence --tools $frozenEvalToolIds --output-format stream-json --verbose $case.prompt
+claude -p --model claude-haiku-4-5-20251001 --effort low --plugin-dir $baselinePlugin --mcp-config $evalMcp --strict-mcp-config --setting-sources project --no-session-persistence --tools Skill --allowedTools $frozenEvalToolIds --output-format stream-json --verbose $case.prompt
 ```
 
 The model receives only the request and normal MCP discovery; do not inject the
 README, tool mappings, expected outputs, or rubric. Confirm every trace calls
-only the synthetic plugin-owned server. If the baseline has no meaningful
-diagnostic miss, stop and remove the skill from scope.
+only the exact shared synthetic MCP configured by `$evalMcp`.
+
+Before scoring, run one synthetic lookup prompt in both arms and one clear
+skill-trigger prompt in treatment. Assert from stream-JSON that both arms can
+complete an allowed MCP call without a permission denial, and that treatment
+invokes the target namespaced `osrs-wiki-research` skill through the `Skill`
+tool. Abort the evaluation if either preflight fails. If the baseline has no
+meaningful diagnostic miss, stop and remove the skill from scope.
 
 - [ ] **Step 6: Author the minimum skill from diagnostic failures only**
 
@@ -476,10 +485,12 @@ test("plugin configuration contains no mutable pins, secrets, writes, or persona
   assert.doesNotMatch(text, /progression-aware|player-ready|write access/iu);
 });
 
-test("trusted staged publishing uses a compatible pinned npm CLI", async () => {
+test("trusted staged publishing pins tooling and publishes the verified artifact", async () => {
   const workflow = await loadText(".github/workflows/publish.yml");
   assert.match(workflow, /npm install --global npm@11\.16\.0/u);
-  assert.match(workflow, /npm stage publish/u);
+  assert.match(workflow, /actions\/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a/u);
+  assert.match(workflow, /node scripts\/inspect-pack\.mjs --artifact-dir/u);
+  assert.match(workflow, /npm stage publish "\$\{\{ steps\.release-pack\.outputs\.tarball \}\}"/u);
 });
 ```
 
@@ -515,9 +526,11 @@ Do not commit this task separately while red. Carry the test into Task 4.
 - Create: `.claude-plugin/marketplace.json`
 - Create: `gemini-extension.json`
 - Modify: `.github/workflows/publish.yml`
+- Modify: `scripts/inspect-pack.mjs`
 - Modify: `package.json`
 - Modify: `package-lock.json`
 - Test: `test/plugin-bundle.test.ts`
+- Create: `test/release-artifact.test.ts`
 
 **Interfaces:**
 
@@ -671,20 +684,60 @@ Create `gemini-extension.json`:
 
 Do not create `GEMINI.md`; the lazy `skills/` directory is the guidance surface.
 
-- [ ] **Step 5: Pin the staged-publishing npm CLI before verification**
+- [ ] **Step 5: Add a tested exact-release-artifact mode**
+
+First create `test/release-artifact.test.ts`. In an OS temporary directory, run
+`scripts/inspect-pack.mjs --artifact-dir <temp> --release-sha <40-hex fixture>`
+and assert it produces exactly one `.tgz`, `npm-pack.json`, `SHA256SUMS`, and
+`RELEASE_SHA`; the SHA-256 file matches the tarball; the JSON filename,
+package/version, npm shasum, and integrity match the tarball; the release SHA
+matches the argument; and no `.tgz` is left in the repository. Run the test and
+observe the missing-option failure before implementation.
+
+Refactor `scripts/inspect-pack.mjs` so its default local mode remains unchanged,
+but release-artifact mode:
+
+- accepts only an existing verified directory outside the repository and a
+  40-hex release SHA;
+- runs `npm pack --json --pack-destination <artifact-dir>` once;
+- applies the existing allowlist, traversal, content-secret scan, clean-install,
+  and ten-tool stdio smoke to that exact tarball;
+- writes the unmodified npm pack JSON plus `SHA256SUMS` and `RELEASE_SHA`;
+- preserves that verified tarball only in the caller-supplied artifact directory.
+
+Turn the targeted test green and rerun `npm run pack:check` to prove default
+cleanup behavior did not regress.
+
+- [ ] **Step 6: Pin npm and persist the exact tarball in the publish workflow**
 
 In `.github/workflows/publish.yml`, immediately after `actions/setup-node`, add
 an explicit `npm install --global npm@11.16.0` step and a step that asserts
-`npm --version` is exactly `11.16.0`. Keep `npm stage publish` as the final
-staged action. Recheck the official staged-publishing minimum immediately before
-implementation; changing this pin requires a reviewed plan update.
+`npm --version` is exactly `11.16.0`. After normal verification, run the new
+release-artifact mode into `$RUNNER_TEMP/npm-release`, expose its exact tarball
+path as the `release-pack` step output, and upload the whole directory as
+`npm-release-${{ github.sha }}` using commit-pinned
+`actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a`
+(`v7.0.1`), `if-no-files-found: error`, and seven-day retention.
 
-- [ ] **Step 6: Turn the bundle tests green**
+The final staged action must be:
+
+```yaml
+- name: Submit the verified tarball as a staged release
+  if: inputs.release_mode == 'staged'
+  run: npm stage publish "${{ steps.release-pack.outputs.tarball }}"
+```
+
+This publishes the exact scanned and uploaded `.tgz`, not a freshly repacked
+directory. Recheck the official staged-publishing minimum and upload-artifact
+commit immediately before implementation; changing either pin requires review.
+
+- [ ] **Step 7: Turn the bundle tests green**
 
 Run:
 
 ```powershell
 node --test test/plugin-bundle.test.ts
+node --test test/release-artifact.test.ts
 npm.cmd run typecheck
 npm.cmd test
 ```
@@ -693,7 +746,7 @@ Expected: bundle tests pass and the complete suite remains green. The Codex
 source path must remain non-root and both compatibility mirrors must be
 byte-identical to their canonical files.
 
-- [ ] **Step 7: Run native validators and an actual Codex install smoke**
+- [ ] **Step 8: Run native validators and an actual Codex install smoke**
 
 Run:
 
@@ -713,10 +766,10 @@ Expected: both validators pass with no warnings and the real Codex
 marketplace/install flow succeeds. Treat an evolving platform schema mismatch
 as a design change, not a reason to suppress validation.
 
-- [ ] **Step 8: Commit the complete bundle**
+- [ ] **Step 9: Commit the complete bundle**
 
 ```powershell
-git add -- package.json package-lock.json test/plugin-bundle.test.ts .mcp.json plugins/osrs-wiki-mcp .claude-plugin .agents gemini-extension.json .github/workflows/publish.yml
+git add -- package.json package-lock.json test/plugin-bundle.test.ts test/release-artifact.test.ts scripts/inspect-pack.mjs .mcp.json plugins/osrs-wiki-mcp .claude-plugin .agents gemini-extension.json .github/workflows/publish.yml
 git commit -m "feat: add cross-agent OSRS Wiki plugin"
 ```
 
@@ -974,7 +1027,13 @@ if ($run.headSha -ne $releaseSha -or $run.event -ne 'workflow_dispatch' -or $run
 
 The workflow must stop after `npm stage publish`; a successful workflow means a
 private stage exists, not that the package is public. Do not use a bootstrap
-token.
+token. Download the commit-named artifact before touching the npm stage:
+
+```powershell
+$workflowArtifactDir = Join-Path $env:TEMP "osrs-wiki-mcp-$releaseSha-workflow"
+gh run download $runId --name "npm-release-$releaseSha" --dir $workflowArtifactDir
+if ((Get-Content (Join-Path $workflowArtifactDir 'RELEASE_SHA') -Raw).Trim() -ne $releaseSha) { throw 'Workflow artifact SHA mismatch' }
+```
 
 - [ ] **Step 3: Inspect and explicitly approve the npm stage**
 
@@ -983,16 +1042,34 @@ exactly `osrs-wiki-mcp@1.1.0`:
 
 ```powershell
 npm.cmd --version
-npm.cmd stage list osrs-wiki-mcp@1.1.0 --json
-npm.cmd stage view $stageId --json
-npm.cmd stage download $stageId --json
+$stages = @(npm.cmd stage list osrs-wiki-mcp --json | ConvertFrom-Json)
+$matchingStages = @($stages | Where-Object {
+  $_.packageName -eq 'osrs-wiki-mcp' -and
+  $_.version -eq '1.1.0' -and
+  ([datetime]$_.createdAt).ToUniversalTime() -ge $dispatchStartedAt
+})
+if ($matchingStages.Count -ne 1) { throw "Expected one matching npm stage, found $($matchingStages.Count)" }
+$stageId = $matchingStages[0].id
+$stage = npm.cmd stage view $stageId --json | ConvertFrom-Json
+$pack = @(Get-Content (Join-Path $workflowArtifactDir 'npm-pack.json') -Raw | ConvertFrom-Json)
+if ($stage.packageName -ne 'osrs-wiki-mcp' -or $stage.version -ne '1.1.0' -or $stage.shasum -ne $pack[0].shasum) { throw 'Stage metadata does not match the workflow tarball' }
+$stageDir = Join-Path $env:TEMP "osrs-wiki-mcp-$stageId-stage"
+New-Item -ItemType Directory -Force -Path $stageDir | Out-Null
+Push-Location $stageDir
+try { npm.cmd stage download $stageId } finally { Pop-Location }
+$stageTarball = Join-Path $stageDir "osrs-wiki-mcp-1.1.0-$stageId.tgz"
+$workflowTarball = Join-Path $workflowArtifactDir $pack[0].filename
+if ((Get-FileHash $stageTarball -Algorithm SHA256).Hash -ne (Get-FileHash $workflowTarball -Algorithm SHA256).Hash) { throw 'Stage tarball differs from workflow tarball' }
 ```
 
 Extract the downloaded tarball into a disposable directory. Inspect its file
 list, run the same secret/personal-data scan as CI, compare package metadata and
-integrity with the workflow artifact, install it with lifecycle scripts
-disabled, and run initialize plus `tools/list` against the staged artifact.
-Reject the stage on any mismatch.
+integrity with `npm-pack.json`, `SHA256SUMS`, and the workflow artifact, install
+it with lifecycle scripts disabled, and run initialize plus `tools/list`
+against the staged artifact. Validate that `$stage.id` equals `$stageId`, its
+creation time follows `$dispatchStartedAt`, and any provenance/head-SHA metadata
+reported by npm is consistent with `$releaseSha`. Reject the stage on any
+mismatch.
 
 After human inspection, explicitly approve it with maintainer 2FA:
 
