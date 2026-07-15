@@ -1,18 +1,58 @@
+import * as z from "zod/v4";
+
 import { buildProvenance, type Provenance, type SourceRef } from "../contracts.ts";
+import { ToolFailure } from "../errors.ts";
 import type {
   BucketQuerySpec,
   BucketScan,
+  ParsedPage,
   RawBucketRow,
   WikiRequestContext,
 } from "../wiki/wiki-client.ts";
-import { cleanWikitext } from "../wiki/wikitext.ts";
+import { cleanWikitext, findTemplates } from "../wiki/wikitext.ts";
 
 const DEFAULT_PAGE_LIMIT = 50;
 const MAX_PAGE_LIMIT = 100;
 const MAX_PUBLIC_INPUT_CHARACTERS = 256;
 
+const RecipeJsonSchema = z.looseObject({
+  ticks: z.union([z.string(), z.number()]).optional(),
+  members: z.boolean().optional(),
+  materials: z
+    .array(
+      z.looseObject({
+        name: z.string().min(1),
+        quantity: z.union([z.string(), z.number()]),
+      }),
+    )
+    .max(200),
+  skills: z
+    .array(
+      z.looseObject({
+        name: z.string().min(1),
+        level: z.union([z.string(), z.number()]),
+        experience: z.union([z.string(), z.number()]).optional(),
+        boostable: z.string().optional(),
+      }),
+    )
+    .max(200),
+  output: z.looseObject({
+    name: z.string().min(1),
+    quantity: z.union([z.string(), z.number()]),
+  }),
+});
+
 export interface AcquisitionWikiClient {
   bucketAll(spec: BucketQuerySpec, context: WikiRequestContext): Promise<BucketScan>;
+}
+
+export interface ItemSourcesWikiClient extends AcquisitionWikiClient {
+  parsePage(
+    title: string,
+    props: readonly ["wikitext"],
+    section: undefined,
+    context: WikiRequestContext,
+  ): Promise<ParsedPage>;
 }
 
 export interface ShopSource {
@@ -34,6 +74,41 @@ export interface DropSource {
   quantity?: string;
   rarity?: string;
   notes?: string;
+}
+
+export interface RecipeMaterial {
+  name: string;
+  quantity: string;
+}
+
+export interface RecipeSkill {
+  name: string;
+  level: string;
+  experience?: string;
+  boostable?: string;
+}
+
+export interface RecipeSource {
+  page: string;
+  ticks?: string;
+  members?: boolean;
+  materials: RecipeMaterial[];
+  skills: RecipeSkill[];
+  output: {
+    name: string;
+    quantity: string;
+  };
+}
+
+export interface GroundSpawnSource {
+  item: string;
+  location?: string;
+  members?: boolean;
+  x: number;
+  y: number;
+  plane: number;
+  mapId: number;
+  leagueRegion?: string;
 }
 
 export interface NormalizedEntry<T> {
@@ -95,6 +170,36 @@ export interface FindShopOutput extends FindSourceBase {
 
 export interface FindDropSourcesOutput extends FindSourceBase {
   sources: DropSource[];
+}
+
+export interface ItemSourceCategory<T> {
+  results: T[];
+  returned: number;
+  total: number;
+  totalIsExact: boolean;
+  truncated: boolean;
+  incomplete: boolean;
+  rawCapReached: boolean;
+  skippedRows: number;
+  nextOffset?: number;
+  warnings: string[];
+}
+
+export interface ItemSourcesInput {
+  item: string;
+  perCategoryLimit?: number;
+}
+
+export interface ItemSourcesOutput {
+  item: string;
+  perCategoryLimit: number;
+  drops: ItemSourceCategory<DropSource>;
+  shops: ItemSourceCategory<ShopSource>;
+  recipes: ItemSourceCategory<RecipeSource>;
+  groundSpawns: ItemSourceCategory<GroundSpawnSource>;
+  coverage: Array<"drops" | "shops" | "recipes" | "ground_spawns">;
+  warnings: string[];
+  provenance: Provenance;
 }
 
 export function normalizeShopRows(
@@ -186,6 +291,150 @@ export function normalizeDropRows(
   return baseCategory(entries, skippedRows, "drop");
 }
 
+export function normalizeRecipeRows(
+  rows: readonly RawBucketRow[],
+  requestedItem: string,
+): NormalizedCategory<RecipeSource> {
+  const entries: Array<NormalizedEntry<RecipeSource>> = [];
+  const seen = new Set<string>();
+  let skippedRows = 0;
+  const requestedIdentity = caseFold(requestedItem);
+
+  for (const row of rows) {
+    const object = rowObject(row.data);
+    const rawPayload = object ? jsonObject(object.production_json) : undefined;
+    const parsed = RecipeJsonSchema.safeParse(rawPayload);
+    const page = row.source.title;
+    if (!parsed.success || !page) {
+      skippedRows += 1;
+      continue;
+    }
+
+    const outputName = cleanWikitext(parsed.data.output.name);
+    if (caseFold(outputName) !== requestedIdentity) continue;
+    const value: RecipeSource = {
+      page,
+      ...(parsed.data.ticks === undefined
+        ? {}
+        : { ticks: cleanWikitext(String(parsed.data.ticks)) }),
+      ...(parsed.data.members === undefined ? {} : { members: parsed.data.members }),
+      materials: parsed.data.materials.map((material) => ({
+        name: cleanWikitext(material.name),
+        quantity: cleanWikitext(String(material.quantity)),
+      })),
+      skills: parsed.data.skills.map((skill) => ({
+        name: cleanWikitext(skill.name),
+        level: cleanWikitext(String(skill.level)),
+        ...(skill.experience === undefined
+          ? {}
+          : { experience: cleanWikitext(String(skill.experience)) }),
+        ...(skill.boostable === undefined
+          ? {}
+          : { boostable: cleanWikitext(skill.boostable) }),
+      })),
+      output: {
+        name: outputName,
+        quantity: cleanWikitext(String(parsed.data.output.quantity)),
+      },
+    };
+    const identity = sortKey([
+      value.page,
+      value.output.name,
+      value.output.quantity,
+      JSON.stringify(value.materials),
+      JSON.stringify(value.skills),
+    ]);
+    if (seen.has(identity)) continue;
+    seen.add(identity);
+    entries.push({ value, source: row.source });
+  }
+
+  entries.sort((left, right) =>
+    compareKeys(
+      sortKey([left.value.output.name, left.value.page, left.value.ticks]),
+      sortKey([right.value.output.name, right.value.page, right.value.ticks]),
+    ),
+  );
+  return categoryWithWarning(entries, skippedRows, "recipe row");
+}
+
+export function normalizeGroundSpawns(
+  page: ParsedPage,
+  requestedItem: string,
+): NormalizedCategory<GroundSpawnSource> {
+  const entries: Array<NormalizedEntry<GroundSpawnSource>> = [];
+  let skippedRows = 0;
+  const requestedIdentity = caseFold(requestedItem);
+
+  for (const template of findTemplates(page.wikitext ?? "", ["ItemSpawnLine"])) {
+    const item = cleanWikitext(template.parameters.name ?? "");
+    if (caseFold(item) !== requestedIdentity) continue;
+    const location = cleanWikitext(template.parameters.location ?? "");
+    const members = booleanText(template.parameters.members);
+    const plane = boundedInteger(template.parameters.plane, 0, 3, 0);
+    const mapId = boundedInteger(
+      template.parameters.mapid ?? template.parameters.map_id,
+      0,
+      Number.MAX_SAFE_INTEGER,
+      0,
+    );
+    const leagueRegion = cleanWikitext(
+      template.parameters.leagueregion ?? template.parameters.league_region ?? "",
+    );
+    const coordinates = Object.entries(template.parameters)
+      .filter(([key]) => /^\d+$/u.test(key))
+      .sort(([left], [right]) => Number(left) - Number(right));
+    if (coordinates.length === 0 || plane === undefined || mapId === undefined) {
+      skippedRows += Math.max(1, coordinates.length);
+      continue;
+    }
+
+    for (const [, coordinate] of coordinates) {
+      const match = /^\s*(\d{1,5})\s*,\s*(\d{1,5})\s*$/u.exec(coordinate);
+      const x = match ? Number(match[1]) : Number.NaN;
+      const y = match ? Number(match[2]) : Number.NaN;
+      if (!Number.isInteger(x) || !Number.isInteger(y) || x > 20_000 || y > 20_000) {
+        skippedRows += 1;
+        continue;
+      }
+      entries.push({
+        value: {
+          item,
+          ...(location.length === 0 ? {} : { location }),
+          ...(members === undefined ? {} : { members }),
+          x,
+          y,
+          plane,
+          mapId,
+          ...(leagueRegion.length === 0 ? {} : { leagueRegion }),
+        },
+        source: page.source,
+      });
+    }
+  }
+
+  entries.sort((left, right) =>
+    compareKeys(
+      sortKey([
+        left.value.location,
+        String(left.value.mapId),
+        String(left.value.plane),
+        String(left.value.x).padStart(5, "0"),
+        String(left.value.y).padStart(5, "0"),
+      ]),
+      sortKey([
+        right.value.location,
+        String(right.value.mapId),
+        String(right.value.plane),
+        String(right.value.x).padStart(5, "0"),
+        String(right.value.y).padStart(5, "0"),
+      ]),
+    ),
+  );
+  const category = categoryWithWarning(entries, skippedRows, "ground-spawn coordinate");
+  return { ...category, requestSources: [page.source] };
+}
+
 export function paginateNormalized<T>(
   category: NormalizedCategory<T>,
   offset: number,
@@ -272,6 +521,106 @@ export async function findDropSources(
   };
 }
 
+export async function getItemSources(
+  client: ItemSourcesWikiClient,
+  input: ItemSourcesInput,
+  context: WikiRequestContext,
+): Promise<ItemSourcesOutput> {
+  const item = publicInput(input.item);
+  const perCategoryLimit = input.perCategoryLimit ?? 20;
+  if (
+    !Number.isInteger(perCategoryLimit) ||
+    perCategoryLimit < 1 ||
+    perCategoryLimit > MAX_PAGE_LIMIT
+  ) {
+    throw new RangeError("perCategoryLimit must be an integer from 1 through 100.");
+  }
+
+  const successfulSources: SourceRef[] = [];
+  const coverage: ItemSourcesOutput["coverage"] = [];
+
+  const drops = await attemptOverviewCategory("Drops", context.signal, async () => {
+    const scan = await client.bucketAll(
+      {
+        bucket: "dropsline",
+        select: ["page_name", "item_name", "drop_json"],
+        where: [["item_name", item]],
+      },
+      context,
+    );
+    return paginateNormalized(withScan(normalizeDropRows(scan.rows), scan), 0, perCategoryLimit);
+  }, "find_drop_sources");
+  if (drops.succeeded) {
+    coverage.push("drops");
+    successfulSources.push(...drops.sources);
+  }
+
+  const shops = await attemptOverviewCategory("Shops", context.signal, async () => {
+    const scan = await client.bucketAll(
+      {
+        bucket: "storeline",
+        select: ["page_name", "sold_item", "sold_item_json"],
+        where: [["sold_item", item]],
+      },
+      context,
+    );
+    return paginateNormalized(withScan(normalizeShopRows(scan.rows), scan), 0, perCategoryLimit);
+  }, "find_shop");
+  if (shops.succeeded) {
+    coverage.push("shops");
+    successfulSources.push(...shops.sources);
+  }
+
+  const recipes = await attemptOverviewCategory("Recipes", context.signal, async () => {
+    const scan = await client.bucketAll(
+      {
+        bucket: "recipe",
+        select: ["page_name", "production_json"],
+        where: [["page_name", item]],
+      },
+      context,
+    );
+    return paginateNormalized(
+      withScan(normalizeRecipeRows(scan.rows, item), scan),
+      0,
+      perCategoryLimit,
+    );
+  });
+  if (recipes.succeeded) {
+    coverage.push("recipes");
+    successfulSources.push(...recipes.sources);
+  }
+
+  const groundSpawns = await attemptOverviewCategory("Ground spawns", context.signal, async () => {
+    const page = await client.parsePage(item, ["wikitext"], undefined, context);
+    return paginateNormalized(normalizeGroundSpawns(page, item), 0, perCategoryLimit);
+  });
+  if (groundSpawns.succeeded) {
+    coverage.push("ground_spawns");
+    successfulSources.push(...groundSpawns.sources);
+  }
+
+  if (coverage.length === 0) {
+    throw new ToolFailure(
+      "UPSTREAM_UNAVAILABLE",
+      "Every item-source category was unavailable; retry the same tool call.",
+    );
+  }
+
+  const categories = [drops.category, shops.category, recipes.category, groundSpawns.category];
+  return {
+    item,
+    perCategoryLimit,
+    drops: drops.category,
+    shops: shops.category,
+    recipes: recipes.category,
+    groundSpawns: groundSpawns.category,
+    coverage,
+    warnings: categories.flatMap((category) => category.warnings),
+    provenance: buildProvenance(successfulSources),
+  };
+}
+
 function withScan<T>(category: NormalizedCategory<T>, scan: BucketScan): NormalizedCategory<T> {
   return {
     ...category,
@@ -279,6 +628,78 @@ function withScan<T>(category: NormalizedCategory<T>, scan: BucketScan): Normali
     rawCapReached: scan.rawCapReached,
     requestSources: scan.sources,
     warnings: [...category.warnings, ...(scan.warning ? [scan.warning] : [])],
+  };
+}
+
+interface OverviewAttempt<T> {
+  category: ItemSourceCategory<T>;
+  sources: SourceRef[];
+  succeeded: boolean;
+}
+
+async function attemptOverviewCategory<T>(
+  label: string,
+  signal: AbortSignal | undefined,
+  operation: () => Promise<PaginatedCategory<T>>,
+  specializedTool?: "find_drop_sources" | "find_shop",
+): Promise<OverviewAttempt<T>> {
+  try {
+    const page = await operation();
+    const warnings = [...page.warnings];
+    if (page.incomplete) {
+      warnings.push(
+        specializedTool
+          ? `${label} are incomplete; retry this call or use ${specializedTool} with offset 0.`
+          : `${label} are incomplete; retry this call.`,
+      );
+    } else if (page.nextOffset !== undefined) {
+      warnings.push(
+        specializedTool
+          ? `${label} truncated at ${page.returned} results; use ${specializedTool} with offset ${page.nextOffset} for the complete list.`
+          : `${label} truncated at ${page.returned} results; increase perCategoryLimit up to 100.`,
+      );
+    }
+    return {
+      category: publicOverviewCategory(page, warnings),
+      sources: page.sources,
+      succeeded: true,
+    };
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    const code = error instanceof ToolFailure ? error.code : "INTERNAL_ERROR";
+    return {
+      category: {
+        results: [],
+        returned: 0,
+        total: 0,
+        totalIsExact: false,
+        truncated: false,
+        incomplete: true,
+        rawCapReached: false,
+        skippedRows: 0,
+        warnings: [`${label} category unavailable (${code}); retry the same tool call.`],
+      },
+      sources: [],
+      succeeded: false,
+    };
+  }
+}
+
+function publicOverviewCategory<T>(
+  page: PaginatedCategory<T>,
+  warnings: string[],
+): ItemSourceCategory<T> {
+  return {
+    results: page.results,
+    returned: page.returned,
+    total: page.total,
+    totalIsExact: page.totalIsExact,
+    truncated: page.truncated,
+    incomplete: page.incomplete,
+    rawCapReached: page.rawCapReached,
+    skippedRows: page.skippedRows,
+    ...(page.nextOffset === undefined ? {} : { nextOffset: page.nextOffset }),
+    warnings,
   };
 }
 
@@ -317,6 +738,26 @@ function baseCategory<T>(
             `Skipped ${skippedRows} malformed upstream ${kind} row${
               skippedRows === 1 ? "" : "s"
             }.`,
+          ],
+    incomplete: false,
+    rawCapReached: false,
+    requestSources: [],
+  };
+}
+
+function categoryWithWarning<T>(
+  entries: Array<NormalizedEntry<T>>,
+  skippedRows: number,
+  label: string,
+): NormalizedCategory<T> {
+  return {
+    entries,
+    skippedRows,
+    warnings:
+      skippedRows === 0
+        ? []
+        : [
+            `Skipped ${skippedRows} malformed ${label}${skippedRows === 1 ? "" : "s"}.`,
           ],
     incomplete: false,
     rawCapReached: false,
@@ -396,4 +837,29 @@ function publicInput(value: string): string {
     throw new RangeError("Item must contain from 1 through 256 Unicode characters.");
   }
   return normalized;
+}
+
+function caseFold(value: string): string {
+  return value.normalize("NFKC").trim().toLowerCase();
+}
+
+function booleanText(value: string | undefined): boolean | undefined {
+  if (value === undefined) return undefined;
+  const normalized = cleanWikitext(value).trim().toLowerCase();
+  if (["yes", "true", "1"].includes(normalized)) return true;
+  if (["no", "false", "0"].includes(normalized)) return false;
+  return undefined;
+}
+
+function boundedInteger(
+  value: string | undefined,
+  minimum: number,
+  maximum: number,
+  fallback: number,
+): number | undefined {
+  if (value === undefined || value.trim().length === 0) return fallback;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= minimum && parsed <= maximum
+    ? parsed
+    : undefined;
 }
