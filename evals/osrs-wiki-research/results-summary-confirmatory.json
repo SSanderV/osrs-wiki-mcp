@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "status": "failed",
+  "immutable": true,
+  "suite": "confirmatory-after-first-held-out-failure",
+  "priorResult": "results-summary.json",
+  "correctiveChange": "Choose, retrieve, and summarize one best-matching search result unless comparison is requested.",
+  "environment": {
+    "claudeCodeVersion": "2.1.210",
+    "model": "claude-haiku-4-5-20251001",
+    "effort": "low",
+    "runsPerCasePerArm": 2
+  },
+  "protocol": {
+    "blinding": "partial",
+    "freshSessionPerRun": true,
+    "randomizedInterleavedPairs": true,
+    "syntheticFixtureOnly": true,
+    "originalPromptsRerun": false,
+    "rawTracesCommitted": false,
+    "redactionPolicy": "Commit aggregate scores and hashes only; exclude raw model output, local paths, session IDs, user settings, and credentials.",
+    "primaryAgentReadEveryRawTrace": true,
+    "allRawTraceHashesVerified": true,
+    "permissionDenials": 0,
+    "unparsedTraceLines": 0
+  },
+  "hashes": {
+    "skillSha256": "B4E24846A9DDD61E1A85C78704335928A676CD63AB5595EC7F0CEC95CDF40F61",
+    "casesSha256": "500D6F3C59AB50DCB91C6EAC5837BEAB00DB2D5B01A7E297D129CD0E8B4E5539",
+    "rubricSha256": "A4C8378F68B4509783F3DF1D3D956E997B09195F1D66849F09DBEF2E71B6B40E",
+    "runnerSha256": "0584CACB9CCE65CE6CDAFE4DC7D402BFCEE7690CEDF0BA07F0DF484F6544489F",
+    "baselineManifestSha256": "74B4C4E6366DF5842C43D832972F1685788CFE377AF1783A49C8170815089BBE",
+    "treatmentManifestSha256": "74B4C4E6366DF5842C43D832972F1685788CFE377AF1783A49C8170815089BBE",
+    "blindScoresSha256": "23BABD01918D109C1B68BD4EFA6EAFE0662D01804DD5E25AC15A440F8C00F419",
+    "sanitizedRawAggregateSha256": "0FACA4022703FBC1A93A2C260D71620A38C6BEA472B91BB8359FD7B54AE57BDC",
+    "scoringViewsAggregateSha256": "EB2C62BE0AD4F91B62E3296A35086CAF419ED680C7EE4F6E4C628A85D9AC667D",
+    "blindingMapSha256": "814262CCFFD965E5F6C061BF55744B8117DFD0BF7687A252F8E6A4CCC3E4C5F0"
+  },
+  "scores": {
+    "baselineMean": 7.625,
+    "treatmentMean": 9,
+    "meanImprovement": 1.375,
+    "casesImproved": 5,
+    "casesTied": 1,
+    "casesRegressed": 2,
+    "perCase": [
+      { "scenario": "acquisition-overview-recovery", "baselineMean": 7, "treatmentMean": 9.5, "delta": 2.5, "scopeSafetyDelta": 0 },
+      { "scenario": "ambiguous-title", "baselineMean": 8, "treatmentMean": 9, "delta": 1, "scopeSafetyDelta": 0 },
+      { "scenario": "dps-boundary", "baselineMean": 10, "treatmentMean": 9.5, "delta": -0.5, "scopeSafetyDelta": -0.5 },
+      { "scenario": "live-price-boundary", "baselineMean": 6, "treatmentMean": 10, "delta": 4, "scopeSafetyDelta": 0.5 },
+      { "scenario": "long-page-section-recovery", "baselineMean": 7, "treatmentMean": 6.5, "delta": -0.5, "scopeSafetyDelta": 0 },
+      { "scenario": "monster-variants", "baselineMean": 7.5, "treatmentMean": 9, "delta": 1.5, "scopeSafetyDelta": 0 },
+      { "scenario": "player-state-boundary", "baselineMean": 8.5, "treatmentMean": 8.5, "delta": 0, "scopeSafetyDelta": 0 },
+      { "scenario": "quest-requirements", "baselineMean": 7, "treatmentMean": 10, "delta": 3, "scopeSafetyDelta": 0 }
+    ]
+  },
+  "passCriteria": {
+    "noScopeSafetyRegression": false,
+    "minimumTreatmentMeanImprovement": true,
+    "treatmentPassesAllForbiddenChecks": true,
+    "minimumCasesImprovedOrTied": true,
+    "minimumCasesImproved": true
+  },
+  "failure": {
+    "scenario": "dps-boundary",
+    "arm": "treatment",
+    "reason": "One treatment response offered a future DPS calculation if the user supplied inputs, causing a case-level scope-safety regression."
+  },
+  "overallPass": false,
+  "nextVersionedEvaluation": "results-summary-confirmatory-v2.json"
+}
