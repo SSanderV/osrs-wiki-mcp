@@ -18,15 +18,15 @@ the ten listed below.
 Codex:
 
 ```powershell
-codex plugin marketplace add SanderVirula/osrs-wiki-mcp --ref v1.1.0
-codex plugin add osrs-wiki-mcp@sander-virula-osrs
+codex plugin marketplace add SSanderV/osrs-wiki-mcp --ref v1.1.1
+codex plugin add osrs-wiki-mcp@ssanderv-osrs
 ```
 
 Claude Code:
 
 ```powershell
-claude plugin marketplace add SanderVirula/osrs-wiki-mcp@v1.1.0 --scope user
-claude plugin install osrs-wiki-mcp@sander-virula-osrs --scope user
+claude plugin marketplace add SSanderV/osrs-wiki-mcp@v1.1.1 --scope user
+claude plugin install osrs-wiki-mcp@ssanderv-osrs --scope user
 ```
 
 The marketplace install and bare-`npx` launcher were verified with Claude Code
@@ -35,10 +35,10 @@ The marketplace install and bare-`npx` launcher were verified with Claude Code
 Gemini CLI:
 
 ```powershell
-gemini extensions install https://github.com/SanderVirula/osrs-wiki-mcp --ref v1.1.0
+gemini extensions install https://github.com/SSanderV/osrs-wiki-mcp --ref v1.1.1
 ```
 
-All three start the exact top-level npm runtime `osrs-wiki-mcp@1.1.0`.
+All three start the exact top-level npm runtime `osrs-wiki-mcp@1.1.1`.
 Node.js 24 or newer and `npx` must be available on `PATH`. The launcher may use
 the npm registry and local npm cache. Release verification records the resolved
 dependency tree, but the wrapper is not claimed to be fully reproducible
@@ -77,7 +77,7 @@ Configure an MCP client to use the pinned npm release:
 ```json
 {
   "command": "npx",
-  "args": ["-y", "osrs-wiki-mcp@1.1.0"]
+  "args": ["-y", "osrs-wiki-mcp@1.1.1"]
 }
 ```
 

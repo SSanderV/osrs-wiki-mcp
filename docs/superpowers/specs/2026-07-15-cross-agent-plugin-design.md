@@ -2,7 +2,7 @@
 
 **Status:** Approved for implementation by an independent reviewer agent
 **Date:** 2026-07-15
-**Repository:** `SanderVirula/osrs-wiki-mcp`
+**Repository:** `SSanderV/osrs-wiki-mcp`
 
 ## Purpose
 
@@ -113,7 +113,7 @@ copies byte-for-byte.
 Codex and Claude use separate marketplace files because their catalog schemas
 are incompatible. Both catalogs identify `osrs-wiki-mcp`; Claude uses the
 repository root (`./`) while Codex uses `./plugins/osrs-wiki-mcp`. Their
-marketplace name is `sander-virula-osrs`.
+marketplace name is `ssanderv-osrs`.
 
 ## Component Contracts
 

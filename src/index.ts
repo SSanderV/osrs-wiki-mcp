@@ -9,7 +9,7 @@ import { JsonHttpClient } from "./http/json-http-client.ts";
 import { createServer } from "./server.ts";
 import { WikiClient } from "./wiki/wiki-client.ts";
 
-const REPOSITORY_URL = "https://github.com/SanderVirula/osrs-wiki-mcp";
+const REPOSITORY_URL = "https://github.com/SSanderV/osrs-wiki-mcp";
 const NODE_UPGRADE_MESSAGE = "osrs-wiki-mcp requires Node.js 24 or newer.\n";
 
 interface PackageJson {

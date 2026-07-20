@@ -45,7 +45,7 @@ test("all plugin manifests share the package version and exact MCP declaration",
   const gemini = await loadJson<GeminiManifest>("gemini-extension.json");
   const mcp = await loadJson<McpConfig>(".mcp.json");
 
-  assert.equal(packageJson.version, "1.1.0");
+  assert.equal(packageJson.version, "1.1.1");
   assert.equal(packageLock.version, packageJson.version);
   assert.equal(packageLock.packages[""]?.version, packageJson.version);
   for (const manifest of [codex, claude, gemini]) {
@@ -77,7 +77,7 @@ test("all plugin manifests share the package version and exact MCP declaration",
     mcpServers: {
       "osrs-wiki": {
         command: "npx",
-        args: ["--yes", "osrs-wiki-mcp@1.1.0"],
+        args: ["--yes", "osrs-wiki-mcp@1.1.1"],
       },
     },
   });
@@ -98,7 +98,7 @@ test("marketplaces expose the supported plugin roots once", async () => {
     plugins: Array<{ name: string; source: string }>;
   }>(".claude-plugin/marketplace.json");
 
-  assert.equal(codex.name, "sander-virula-osrs");
+  assert.equal(codex.name, "ssanderv-osrs");
   assert.deepEqual(
     codex.plugins.map(({ name }) => name),
     ["osrs-wiki-mcp"],
@@ -108,10 +108,10 @@ test("marketplaces expose the supported plugin roots once", async () => {
     path: "./plugins/osrs-wiki-mcp",
   });
   assert.ok(codex.plugins[0]?.policy);
-  assert.equal(claude.name, "sander-virula-osrs");
+  assert.equal(claude.name, "ssanderv-osrs");
   assert.equal(
     claude.description,
-    "OSRS Wiki MCP plugins by SanderVirula.",
+    "OSRS Wiki MCP plugins by SSanderV.",
   );
   assert.deepEqual(claude.plugins, [
     {
@@ -123,6 +123,66 @@ test("marketplaces expose the supported plugin roots once", async () => {
       tags: ["osrs", "wiki", "mcp"],
     },
   ]);
+});
+
+test("the Codex plugin exposes transparent in-root icon assets", async () => {
+  const codex = await loadJson<{
+    interface: {
+      brandColor: string;
+      composerIcon: string;
+      logo: string;
+    };
+  }>("plugins/osrs-wiki-mcp/.codex-plugin/plugin.json");
+
+  assert.deepEqual(
+    {
+      brandColor: codex.interface.brandColor,
+      composerIcon: codex.interface.composerIcon,
+      logo: codex.interface.logo,
+    },
+    {
+      brandColor: "#155837",
+      composerIcon: "./assets/icon-small.png",
+      logo: "./assets/icon.png",
+    },
+  );
+
+  for (const [path, expectedSize] of [
+    ["plugins/osrs-wiki-mcp/assets/icon.png", 512],
+    ["plugins/osrs-wiki-mcp/assets/icon-small.png", 128],
+  ] as const) {
+    const png = await readFile(new URL(path, root));
+    assert.deepEqual(
+      png.subarray(0, 8),
+      Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    );
+    assert.equal(png.readUInt32BE(16), expectedSize);
+    assert.equal(png.readUInt32BE(20), expectedSize);
+    assert.equal(png[25], 6, `${path} must use RGBA color`);
+  }
+});
+
+test("public plugin metadata uses the canonical GitHub identity", async () => {
+  const publicMetadata = (
+    await Promise.all(
+      [
+        ".agents/plugins/marketplace.json",
+        ".claude-plugin/marketplace.json",
+        ".claude-plugin/plugin.json",
+        "package.json",
+        "plugins/osrs-wiki-mcp/.codex-plugin/plugin.json",
+        "README.md",
+        "src/http/json-http-client.ts",
+        "src/index.ts",
+      ].map((path) => readFile(new URL(path, root), "utf8")),
+    )
+  ).join("\n");
+
+  assert.match(publicMetadata, /github\.com\/SSanderV\/osrs-wiki-mcp/u);
+  const repositoryOwners = [...publicMetadata.matchAll(/github\.com\/([^/"#\s]+)\/osrs-wiki-mcp/gu)]
+    .map(([, owner]) => owner);
+  assert.ok(repositoryOwners.length > 0);
+  assert.deepEqual([...new Set(repositoryOwners)], ["SSanderV"]);
 });
 
 test("plugin configuration contains only the exact runtime pin and no secrets, writes, or personal paths", async () => {
@@ -145,7 +205,7 @@ test("plugin configuration contains only the exact runtime pin and no secrets, w
     ([pin]) => pin,
   );
   assert.ok(pins.length > 0);
-  assert.deepEqual([...new Set(pins)], ["osrs-wiki-mcp@1.1.0"]);
+  assert.deepEqual([...new Set(pins)], ["osrs-wiki-mcp@1.1.1"]);
   assert.doesNotMatch(text, /[A-Za-z]:[\\/]Users[\\/]/u);
   assert.doesNotMatch(text, /token|secret|password|api[_-]?key/iu);
   assert.doesNotMatch(text, /"(env|hooks|apps|monitors|commands)"\s*:/u);

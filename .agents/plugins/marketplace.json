@@ -1,7 +1,7 @@
 {
-  "name": "sander-virula-osrs",
+  "name": "ssanderv-osrs",
   "interface": {
-    "displayName": "SanderVirula OSRS"
+    "displayName": "SSanderV OSRS"
   },
   "plugins": [
     {

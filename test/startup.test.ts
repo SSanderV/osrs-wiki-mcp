@@ -39,7 +39,7 @@ test("the executable prints the static upgrade message before attempting startup
 test("the Wiki User-Agent is derived from the package version and public repository", () => {
   assert.equal(
     createUserAgent("1.2.3"),
-    "osrs-wiki-mcp/1.2.3 (+https://github.com/SanderVirula/osrs-wiki-mcp)",
+    "osrs-wiki-mcp/1.2.3 (+https://github.com/SSanderV/osrs-wiki-mcp)",
   );
 });
 

@@ -2,7 +2,7 @@
   "mcpServers": {
     "osrs-wiki": {
       "command": "npx",
-      "args": ["--yes", "osrs-wiki-mcp@1.1.0"]
+      "args": ["--yes", "osrs-wiki-mcp@1.1.1"]
     }
   }
 }

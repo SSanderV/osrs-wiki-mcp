@@ -1,8 +1,8 @@
 {
-  "name": "sander-virula-osrs",
-  "description": "OSRS Wiki MCP plugins by SanderVirula.",
+  "name": "ssanderv-osrs",
+  "description": "OSRS Wiki MCP plugins by SSanderV.",
   "owner": {
-    "name": "SanderVirula"
+    "name": "SSanderV"
   },
   "plugins": [
     {

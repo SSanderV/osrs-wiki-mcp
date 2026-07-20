@@ -382,7 +382,7 @@ test("product-contract runner freezes the ten Wiki tools plus the external calcu
   assert.ok(allowlist.includes("mcp__external-dps__calculate_synthetic_dps"));
 });
 
-test("one rendered MCP config connects both servers and is identical for both arms", async () => {
+test("one rendered MCP config connects both servers while the frozen runner rejects the post-freeze runtime", async () => {
   const root = await mkdtemp(join(tmpdir(), "osrs-wiki-product-contract-config-"));
   try {
     const configPath = join(root, "eval-mcp.json");
@@ -441,10 +441,26 @@ test("one rendered MCP config connects both servers and is identical for both ar
         };
       };
     }>("product-contract-v2-cases.json");
+    const frozenRuntimeHash = "9A7A64B3C7AEAD5031D93243A35121ED9EDD75BC8EED3FFC0925E91CB8B9153A";
+    assert.equal(
+      suite.protocol.preregisteredDependencies.distRuntimeAggregateSha256,
+      frozenRuntimeHash,
+    );
+
+    const currentHashResult = spawnSync(process.execPath, [
+      runnerPath,
+      "--print-dist-runtime-hash",
+      configPath,
+    ], { encoding: "utf8" });
+    assert.equal(currentHashResult.status, 0, currentHashResult.stderr);
+    const currentRuntimeHash = currentHashResult.stdout.trim();
+    assert.match(currentRuntimeHash, /^[A-F0-9]{64}$/u);
+    assert.notEqual(currentRuntimeHash, frozenRuntimeHash);
+
     // The superseded preregistration deliberately preserves the original machine's
-    // absolute Node, checkout, and fixture paths. After checking the semantic launcher
-    // identity above, exercise the unchanged runner with only the machine-local raw
-    // config hash replaced in a temporary suite copy.
+    // absolute Node, checkout, fixture paths, and runtime hash. After checking the
+    // semantic launcher identity above, prove the unchanged runner rejects the current
+    // post-freeze runtime even when only the machine-local config hash is substituted.
     const machineSuite = structuredClone(suite);
     machineSuite.protocol.preregisteredDependencies.renderedMcpConfigSha256 = configHash;
     const contractCasesPath = join(root, "machine-product-contract-v2-cases.json");
@@ -455,20 +471,10 @@ test("one rendered MCP config connects both servers and is identical for both ar
       contractCasesPath,
       configPath,
     ], { encoding: "utf8" });
-    assert.equal(contractResult.status, 0, contractResult.stderr);
-    const contract = JSON.parse(contractResult.stdout) as {
-      mcpConfigForArms: { baseline: string; treatment: string };
-      mcpConfigSha256: string;
-      distRuntimeAggregateSha256: string;
-      toolAllowlist: string[];
-    };
-    assert.equal(contract.mcpConfigForArms.baseline, contract.mcpConfigForArms.treatment);
-    assert.equal(contract.toolAllowlist.length, 11);
-    assert.equal(contract.mcpConfigSha256, configHash);
-    assert.match(contract.distRuntimeAggregateSha256, /^[A-F0-9]{64}$/u);
-    assert.equal(
-      contract.distRuntimeAggregateSha256,
-      suite.protocol.preregisteredDependencies.distRuntimeAggregateSha256,
+    assert.notEqual(contractResult.status, 0);
+    assert.match(
+      contractResult.stderr,
+      /Generated dist runtime hash does not match preregistration/u,
     );
   } finally {
     await rm(root, { recursive: true, force: true });

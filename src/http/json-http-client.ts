@@ -7,7 +7,7 @@ import { SingleFlight } from "./single-flight.ts";
 
 const REQUEST_BUDGET_MS = 20_000;
 const MAX_RESPONSE_BYTES = 5 * 1024 * 1024;
-const USER_AGENT = "osrs-wiki-mcp/1.0 (+https://github.com/SanderVirula/osrs-wiki-mcp)";
+const USER_AGENT = "osrs-wiki-mcp/1.0 (+https://github.com/SSanderV/osrs-wiki-mcp)";
 const RETRYABLE_STATUS = new Set([429, 502, 503, 504]);
 
 interface CachedJsonEnvelope {

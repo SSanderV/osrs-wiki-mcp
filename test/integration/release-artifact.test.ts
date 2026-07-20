@@ -66,7 +66,7 @@ test("release mode preserves one fully described verified tarball outside the re
     assert.equal(pack.length, 1);
     assert.equal(pack[0]?.filename, tarballName);
     assert.equal(pack[0]?.name, "osrs-wiki-mcp");
-    assert.equal(pack[0]?.version, "1.1.0");
+    assert.equal(pack[0]?.version, "1.1.1");
     assert.equal(
       pack[0]?.shasum,
       createHash("sha1").update(tarball).digest("hex"),

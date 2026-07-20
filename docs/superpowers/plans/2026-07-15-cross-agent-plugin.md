@@ -195,6 +195,7 @@ git commit -m "feat: publish MCP usage instructions"
 - [ ] **Step 1: Build a deterministic synthetic MCP fixture**
 
 Create `stub-server.mjs` by importing the built `dist/server.js`, constructing
+the historically frozen
 `createServer({ wikiClient: syntheticWikiClient, version: "1.1.0" })`, and
 connecting it to `StdioServerTransport`. The synthetic client must:
 
@@ -509,6 +510,14 @@ and all three earlier failed summaries as immutable evidence; use deterministic
 contracts for bundle correctness and Luna low only for representative routing,
 recovery, provenance, and capability-boundary smoke coverage after Task 5.
 
+The later GitHub account rename changed the production repository URL and HTTP
+User-Agent, so the current generated runtime intentionally no longer matches
+the superseded preregistration's frozen runtime hash. Keep the suite, fixture,
+and frozen hash unchanged. The integration contract must validate the current
+runtime separately and confirm that the unchanged evaluation runner rejects it;
+that rejection preserves the historical boundary rather than recording a new
+evaluation result.
+
 ```powershell
 git add -- evals/osrs-wiki-research skills/osrs-wiki-research test/integration/eval-stub-contract.test.ts
 git commit -m "feat: add evaluated OSRS Wiki research skill"
@@ -633,15 +642,15 @@ test("marketplaces expose the supported plugin roots once", async () => {
     plugins: Array<{ name: string; source: string }>;
   }>(".claude-plugin/marketplace.json");
 
-  assert.equal(codex.name, "sander-virula-osrs");
+  assert.equal(codex.name, "ssanderv-osrs");
   assert.deepEqual(codex.plugins.map(({ name }) => name), ["osrs-wiki-mcp"]);
   assert.deepEqual(codex.plugins[0]?.source, {
     source: "local",
     path: "./plugins/osrs-wiki-mcp",
   });
   assert.ok(codex.plugins[0]?.policy);
-  assert.equal(claude.name, "sander-virula-osrs");
-  assert.equal(claude.description, "OSRS Wiki MCP plugins by SanderVirula.");
+  assert.equal(claude.name, "ssanderv-osrs");
+  assert.equal(claude.description, "OSRS Wiki MCP plugins by SSanderV.");
   assert.deepEqual(claude.plugins, [{
     name: "osrs-wiki-mcp",
     source: "./",
@@ -734,7 +743,7 @@ Do not commit this task separately while red. Carry the test into Task 4.
 
 - MCP server key: `osrs-wiki`
 - Plugin identifier: `osrs-wiki-mcp`
-- Marketplace identifier: `sander-virula-osrs`
+- Marketplace identifier: `ssanderv-osrs`
 - Release version and npm pin: `1.1.0`
 
 - [ ] **Step 1: Create the canonical MCP declaration and Codex mirror**
@@ -768,11 +777,11 @@ Create `plugins/osrs-wiki-mcp/.codex-plugin/plugin.json`:
   "version": "1.1.0",
   "description": "Source-backed Old School RuneScape Wiki research through ten read-only MCP tools.",
   "author": {
-    "name": "SanderVirula",
-    "url": "https://github.com/SanderVirula"
+    "name": "SSanderV",
+    "url": "https://github.com/SSanderV"
   },
-  "homepage": "https://github.com/SanderVirula/osrs-wiki-mcp#readme",
-  "repository": "https://github.com/SanderVirula/osrs-wiki-mcp",
+  "homepage": "https://github.com/SSanderV/osrs-wiki-mcp#readme",
+  "repository": "https://github.com/SSanderV/osrs-wiki-mcp",
   "license": "MIT",
   "keywords": ["osrs", "old-school-runescape", "wiki", "mcp", "research"],
   "skills": "./skills/",
@@ -781,10 +790,10 @@ Create `plugins/osrs-wiki-mcp/.codex-plugin/plugin.json`:
     "displayName": "OSRS Wiki MCP",
     "shortDescription": "Source-backed OSRS Wiki research",
     "longDescription": "Research items, acquisition sources, quests, monsters, and Wiki pages with bounded structured results and canonical provenance.",
-    "developerName": "SanderVirula",
+    "developerName": "SSanderV",
     "category": "Research",
     "capabilities": ["Read"],
-    "websiteURL": "https://github.com/SanderVirula/osrs-wiki-mcp",
+    "websiteURL": "https://github.com/SSanderV/osrs-wiki-mcp",
     "defaultPrompt": [
       "Research an OSRS item and cite the Wiki.",
       "Show how to obtain an item in OSRS.",
@@ -798,9 +807,9 @@ Create `.agents/plugins/marketplace.json`:
 
 ```json
 {
-  "name": "sander-virula-osrs",
+  "name": "ssanderv-osrs",
   "interface": {
-    "displayName": "SanderVirula OSRS"
+    "displayName": "SSanderV OSRS"
   },
   "plugins": [
     {
@@ -830,10 +839,10 @@ Create `.claude-plugin/plugin.json`:
   "version": "1.1.0",
   "description": "Source-backed Old School RuneScape Wiki research through ten read-only MCP tools.",
   "author": {
-    "name": "SanderVirula"
+    "name": "SSanderV"
   },
-  "homepage": "https://github.com/SanderVirula/osrs-wiki-mcp#readme",
-  "repository": "https://github.com/SanderVirula/osrs-wiki-mcp",
+  "homepage": "https://github.com/SSanderV/osrs-wiki-mcp#readme",
+  "repository": "https://github.com/SSanderV/osrs-wiki-mcp",
   "license": "MIT",
   "keywords": ["osrs", "old-school-runescape", "wiki", "mcp", "research"],
   "skills": "./skills/",
@@ -845,10 +854,10 @@ Create `.claude-plugin/marketplace.json`:
 
 ```json
 {
-  "name": "sander-virula-osrs",
-  "description": "OSRS Wiki MCP plugins by SanderVirula.",
+  "name": "ssanderv-osrs",
+  "description": "OSRS Wiki MCP plugins by SSanderV.",
   "owner": {
-    "name": "SanderVirula"
+    "name": "SSanderV"
   },
   "plugins": [
     {
@@ -996,7 +1005,7 @@ claude plugin validate --strict .
 The Codex validator does not validate the marketplace catalog. Therefore also
 set a disposable `CODEX_HOME`, add the repository path as a local marketplace,
 run `codex plugin list --available --json`, install
-`osrs-wiki-mcp@sander-virula-osrs`, and confirm the cached plugin root is
+`osrs-wiki-mcp@ssanderv-osrs`, and confirm the cached plugin root is
 `plugins/osrs-wiki-mcp` with one MCP and one skill. Remove the disposable home
 afterward.
 
@@ -1022,7 +1031,7 @@ git commit -m "feat: add cross-agent OSRS Wiki plugin"
 
 **Interfaces:**
 
-- Public install names: `osrs-wiki-mcp@sander-virula-osrs`
+- Public install names: `osrs-wiki-mcp@ssanderv-osrs`
 - Direct-MCP install remains supported for clients without plugin support.
 
 - [ ] **Step 1: Add plugin installation before the raw MCP configuration**
@@ -1037,21 +1046,21 @@ The plugin adds one-install MCP setup and a small source-backed research skill. 
 Codex:
 
 ```powershell
-codex plugin marketplace add SanderVirula/osrs-wiki-mcp --ref v1.1.0
-codex plugin add osrs-wiki-mcp@sander-virula-osrs
+codex plugin marketplace add SSanderV/osrs-wiki-mcp --ref v1.1.0
+codex plugin add osrs-wiki-mcp@ssanderv-osrs
 ```
 
 Claude Code:
 
 ```powershell
-claude plugin marketplace add SanderVirula/osrs-wiki-mcp@v1.1.0 --scope user
-claude plugin install osrs-wiki-mcp@sander-virula-osrs --scope user
+claude plugin marketplace add SSanderV/osrs-wiki-mcp@v1.1.0 --scope user
+claude plugin install osrs-wiki-mcp@ssanderv-osrs --scope user
 ```
 
 Gemini CLI:
 
 ```powershell
-gemini extensions install https://github.com/SanderVirula/osrs-wiki-mcp --ref v1.1.0
+gemini extensions install https://github.com/SSanderV/osrs-wiki-mcp --ref v1.1.0
 ```
 
 All three start the exact top-level npm runtime `osrs-wiki-mcp@1.1.0`. Node.js 24 or newer and `npx` must be available on `PATH`. The launcher may use the npm registry and local npm cache, and transitive dependencies are verified at release time but are not claimed to be fully reproducible offline.
@@ -1106,15 +1115,15 @@ npm.cmd pack --dry-run --json
 $selectorFiles = @('README.md', 'CONTRIBUTING.md', '.mcp.json', 'plugins/osrs-wiki-mcp/.mcp.json', 'gemini-extension.json')
 $selectorText = ($selectorFiles | ForEach-Object { Get-Content -LiteralPath $_ -Raw }) -join "`n"
 $selectors = @([regex]::Matches($selectorText, 'osrs-wiki-mcp@[A-Za-z0-9*_.~^+-]+').Value | Sort-Object -Unique)
-$expectedSelectors = @('osrs-wiki-mcp@1.1.0', 'osrs-wiki-mcp@v1.1.0', 'osrs-wiki-mcp@sander-virula-osrs')
+$expectedSelectors = @('osrs-wiki-mcp@1.1.0', 'osrs-wiki-mcp@v1.1.0', 'osrs-wiki-mcp@ssanderv-osrs')
 if (@(Compare-Object $selectors $expectedSelectors).Count -ne 0) { throw "Unexpected npm, Git, or marketplace selector; found: $($selectors -join ', ')" }
 $readme = Get-Content -LiteralPath README.md -Raw
 $requiredInstallLines = @(
-  'codex plugin marketplace add SanderVirula/osrs-wiki-mcp --ref v1.1.0',
-  'codex plugin add osrs-wiki-mcp@sander-virula-osrs',
-  'claude plugin marketplace add SanderVirula/osrs-wiki-mcp@v1.1.0 --scope user',
-  'claude plugin install osrs-wiki-mcp@sander-virula-osrs --scope user',
-  'gemini extensions install https://github.com/SanderVirula/osrs-wiki-mcp --ref v1.1.0'
+  'codex plugin marketplace add SSanderV/osrs-wiki-mcp --ref v1.1.0',
+  'codex plugin add osrs-wiki-mcp@ssanderv-osrs',
+  'claude plugin marketplace add SSanderV/osrs-wiki-mcp@v1.1.0 --scope user',
+  'claude plugin install osrs-wiki-mcp@ssanderv-osrs --scope user',
+  'gemini extensions install https://github.com/SSanderV/osrs-wiki-mcp --ref v1.1.0'
 )
 foreach ($line in $requiredInstallLines) {
   if (-not $readme.Contains($line)) { throw "Missing exact immutable install line: $line" }
@@ -1429,9 +1438,9 @@ Require `git rev-parse v1.1.0^{}` to equal `$releaseSha` before pushing.
 
 - [ ] **Step 6: Test each wrapper in an isolated client configuration**
 
-For Codex, add `SanderVirula/osrs-wiki-mcp --ref v1.1.0`; for Claude, add
-`SanderVirula/osrs-wiki-mcp@v1.1.0`; install
-`osrs-wiki-mcp@sander-virula-osrs` in disposable homes with no user or project
+For Codex, add `SSanderV/osrs-wiki-mcp --ref v1.1.0`; for Claude, add
+`SSanderV/osrs-wiki-mcp@v1.1.0`; install
+`osrs-wiki-mcp@ssanderv-osrs` in disposable homes with no user or project
 MCP settings. Start a fresh task/session and confirm from origin-qualified
 diagnostics:
 
