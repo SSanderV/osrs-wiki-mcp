@@ -491,14 +491,16 @@ baseline by at least 1.0, improve or tie at least seven of eight cases, improve
 at least two cases, pass every forbidden-behavior check, and have no
 scope-safety regression.
 
-Before generating any case output, an independent reviewer must approve the
-skill, rubric, suite, fixture separation, and this addendum. Then run exactly
-two fresh sessions per case per arm with the existing randomized/interleaved,
-partial-blinding, locked-score, reveal, and raw-audit protocol. Record the
-result in `results-summary-product-contract-v2.json`. This is the one final
-preregistered qualification evaluation for the new contract. If it fails, do
-not create another suite in response to the observed result; preserve
-non-qualification and return to architecture review.
+An independent reviewer approved the frozen skill, rubric, suite, fixture
+separation, and this addendum before any product-contract-v2 case output was
+generated. On 2026-07-20, the user deliberately superseded the planned
+32-session Claude Haiku qualification run with a small Luna-low end-to-end
+smoke test of the completed plugin bundle. No product-contract-v2 model output
+was generated, `results-summary-product-contract-v2.json` must not be created,
+and no statistical qualification claim may be made. Keep the frozen harness
+and all three earlier failed summaries as immutable evidence; use deterministic
+contracts for bundle correctness and Luna low only for representative routing,
+recovery, provenance, and capability-boundary smoke coverage after Task 5.
 
 ```powershell
 git add -- evals/osrs-wiki-research skills/osrs-wiki-research test/integration/eval-stub-contract.test.ts
@@ -1166,7 +1168,8 @@ git status --short
 Expected: all commands pass. `npm test` contains only the lightweight
 `test/*.test.ts` suite, including initialize and plugin-bundle contracts; the
 explicit serial command passes both process-heavy integration contracts. The
-controlled eval summary passes and only intentional feature files are changed.
+frozen evaluation artifacts remain internally consistent, the three historical
+failures remain immutable, and only intentional feature files are changed.
 `git diff --check origin/main...HEAD` covers committed feature changes rather
 than only the current worktree. Confirm CI and publish workflows run the same
 serial integration command only after building `dist/`.
@@ -1185,6 +1188,11 @@ approval to execute its downloaded CLI. If approval is unavailable, run the
 deterministic Gemini manifest/schema and install-layout contracts, record the
 native-smoke deferral, and do not claim native Gemini verification; that
 fallback satisfies the pre-release Gemini gate.
+
+After the deterministic contracts pass, run a small representative Luna-low
+smoke against the actual Codex plugin surface. This is a qualitative weak-model
+usability check, not a replacement A/B study or qualification claim. Keep it
+bounded to the completed bundle and preserve only sanitized pass/fail evidence.
 
 - [ ] **Step 2: Request a fresh read-only reviewer agent**
 
