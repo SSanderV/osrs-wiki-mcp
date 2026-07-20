@@ -160,10 +160,22 @@ git commit -m "feat: publish MCP usage instructions"
 **Files:**
 
 - Create: `evals/osrs-wiki-research/stub-server.mjs`
+- Create only for the independently reviewed composability condition: `evals/osrs-wiki-research/external-dps-stub-server.mjs`
 - Create: `evals/osrs-wiki-research/diagnostic-cases.json`
 - Create: `evals/osrs-wiki-research/held-out-cases.json`
+- Create only after a failed first held-out gate: `evals/osrs-wiki-research/confirmatory-cases.json`
+- Create only after a failed first confirmatory gate: `evals/osrs-wiki-research/confirmatory-v2-cases.json`
+- Create only after the independent product-boundary reset: `evals/osrs-wiki-research/product-contract-v2-cases.json`
 - Create: `evals/osrs-wiki-research/rubric.json`
+- Create only after the independent product-boundary reset: `evals/osrs-wiki-research/rubric-v2.json`
+- Create only for the final product-contract run: `evals/osrs-wiki-research/build-product-contract-v2-mcp-config.mjs`
+- Create only for the final product-contract run: `evals/osrs-wiki-research/run-product-contract-v2.mjs`
+- Create only for the final product-contract run: `evals/osrs-wiki-research/prepare-scoring-v2.mjs`
+- Create only for the final product-contract run: `evals/osrs-wiki-research/audit-raw-traces-v2.mjs`
 - Create after evaluation: `evals/osrs-wiki-research/results-summary.json`
+- Create only after a corrective confirmation: `evals/osrs-wiki-research/results-summary-confirmatory.json`
+- Create only after a second corrective confirmation: `evals/osrs-wiki-research/results-summary-confirmatory-v2.json`
+- Create only after the final product-contract evaluation: `evals/osrs-wiki-research/results-summary-product-contract-v2.json`
 - Create: `skills/osrs-wiki-research/SKILL.md`
 - Create: `skills/osrs-wiki-research/agents/openai.yaml`
 - Test: `test/integration/eval-stub-contract.test.ts`
@@ -335,6 +347,158 @@ result, `"blinding": "partial"`, the redaction policy, and SHA-256 hashes of
 both sanitized raw traces and scoring views. Do not commit raw model outputs,
 local paths, session IDs, user settings, or credentials. The primary agent
 reads every trace and signs off in the summary.
+
+#### Corrective confirmatory addendum (activated 2026-07-16)
+
+The first held-out comparison is an immutable failed result. It used skill hash
+`9FF09E0BAE427ED3FF607AB2F3FF8D39C92E5AB48066E63FD7FA7411601BE775`
+and held-out-suite hash
+`A6E1A578091E4D2E8AD19438D9DBE5F5E54076D899360D988527719E8083618F`.
+Its locked blind-score hash is
+`1C059878A728B2F128F30509D9369994CF969198F5868F95DD4387AD73B28482`;
+baseline scored 7.25/10 and treatment 8.75/10, but one treatment
+ambiguous-title run merged two candidates, so the all-forbidden-behaviors gate
+failed. `results-summary.json` must record that failure and link to, rather than
+be replaced by, any corrective result.
+
+Do not rerun or rescore the original held-out prompts. The single corrective
+skill change is the fixture-neutral rule to choose, retrieve, and summarize one
+best-matching search result unless comparison is requested. Freeze it at
+`B4E24846A9DDD61E1A85C78704335928A676CD63AB5595EC7F0CEC95CDF40F61`.
+Run only `confirmatory-cases.json`, frozen at
+`500D6F3C59AB50DCB91C6EAC5837BEAB00DB2D5B01A7E297D129CD0E8B4E5539`,
+with the same two-runs-per-case, fresh-session, randomized/interleaved,
+partial-blinding, scoring, raw-audit, and pass-criteria protocol. The frozen
+rubric hash is
+`A4C8378F68B4509783F3DF1D3D956E997B09195F1D66849F09DBEF2E71B6B40E`;
+the held-out runner hash is
+`0584CACB9CCE65CE6CDAFE4DC7D402BFCEE7690CEDF0BA07F0DF484F6544489F`;
+both otherwise-identical plugin manifests hash to
+`74B4C4E6366DF5842C43D832972F1685788CFE377AF1783A49C8170815089BBE`.
+
+Write the corrected run to `results-summary-confirmatory.json`. That summary
+must link back to the failed `results-summary.json`, restate the corrective
+change and all preregistered hashes, and never recast the first run as passing.
+Only the confirmatory run may qualify the corrected skill, and only if it passes
+every original criterion unchanged.
+
+#### Second corrective confirmatory addendum (activated 2026-07-16)
+
+The first confirmatory comparison is also an immutable failed result and is
+recorded separately in `results-summary-confirmatory.json`. It used skill hash
+`B4E24846A9DDD61E1A85C78704335928A676CD63AB5595EC7F0CEC95CDF40F61`
+and suite hash
+`500D6F3C59AB50DCB91C6EAC5837BEAB00DB2D5B01A7E297D129CD0E8B4E5539`.
+Its locked blind-score hash is
+`23BABD01918D109C1B68BD4EFA6EAFE0662D01804DD5E25AC15A440F8C00F419`;
+baseline scored 7.625/10 and treatment 9/10, for a 1.375 improvement.
+The treatment arm passed every forbidden-behavior check, but one treatment DPS
+answer offered a future calculation if the user supplied inputs. That created
+a -0.5 case-level scope-safety delta, so the no-scope-safety-regression gate
+failed. The primary agent audited all 32 raw traces after reveal and verified
+every recorded hash. Do not rerun or rescore either earlier suite.
+
+The single second corrective change is fixture-neutral: for DPS requests, stop
+after stating the boundary and never request inputs, list required inputs,
+offer a walkthrough, suggest supplying data, or claim later calculation
+capability. Freeze the revised skill at
+`C8F3A0F2353191A2CCDFB523940B8DFE6A3B1EA00DECC290218F790BF256AEBE`.
+Run only `confirmatory-v2-cases.json`, frozen at
+`AAA94BCDFA37AA966B27F1065E7DFA739E4E76E6415159C4871C14EC0F260BDE`.
+The v2 prompts are disjoint from all 24 earlier prompts and cover the same eight
+scenarios once each. Use the unchanged two-runs-per-case, fresh-session,
+randomized/interleaved, partial-blinding, scoring, raw-audit, and pass-criteria
+protocol. The rubric, runner, and otherwise-identical plugin manifest hashes
+remain respectively
+`A4C8378F68B4509783F3DF1D3D956E997B09195F1D66849F09DBEF2E71B6B40E`,
+`0584CACB9CCE65CE6CDAFE4DC7D402BFCEE7690CEDF0BA07F0DF484F6544489F`,
+and
+`74B4C4E6366DF5842C43D832972F1685788CFE377AF1783A49C8170815089BBE`.
+
+Write the v2 result to `results-summary-confirmatory-v2.json`. It must link to
+both immutable failed summaries, restate every frozen dependency hash, and
+never overwrite or recast an earlier result. Under that frozen v2 hypothesis,
+only this v2 run could have qualified the then-current skill by passing every
+original criterion unchanged. It did not qualify.
+
+#### Product-contract v2 evaluation reset (activated 2026-07-16)
+
+The second corrective comparison is a third immutable failed result, recorded
+in `results-summary-confirmatory-v2.json`. It used skill hash
+`C8F3A0F2353191A2CCDFB523940B8DFE6A3B1EA00DECC290218F790BF256AEBE`,
+suite hash
+`AAA94BCDFA37AA966B27F1065E7DFA739E4E76E6415159C4871C14EC0F260BDE`,
+and locked blind-score hash
+`D96050B460AB705CCA62FBA4202222615D2E865E8CF3D67159A5477B46B9F3BA`.
+Baseline scored 7.5/10 and treatment 9.0625/10, for a 1.5625
+improvement; seven cases improved and one tied. Both treatment answers
+requested player inputs or offered a later DPS calculation, violating the
+explicit v2 case check. All 32 raw traces and their hashes were audited after
+reveal. Do not rerun, rescore, overwrite, or recast this result.
+
+Independent architecture review found the absolute no-follow-up rule to be an
+over-broad restriction on the host rather than a defensible MCP boundary. The
+Wiki MCP cannot inspect player state or calculate DPS, and no inferred loadout
+or DPS value may be attributed to Wiki/MCP output. A host may nevertheless use
+or suggest a clearly identified external capability, request inputs for that
+external workflow, and keep its result separate from Wiki facts. Do not promote
+the rejected absolute prohibition into `SERVER_INSTRUCTIONS`.
+
+This resets the hypothesis rather than correcting the original comparison.
+Keep all three earlier summaries as failed evidence. Freeze the revised skill
+at
+`683101C90B2B53BBF17AD777CBFEEF8DDD910B347756B3E0A8D9974729050328`
+and the composable rubric in `rubric-v2.json` at
+`F4998BC7263D8766C63094758458F82A2D51FB06016ADA0F61416ADB4EC870B8`.
+The fresh eight-case `product-contract-v2-cases.json` suite hashes to
+`077BF3A096466B88B7957D8A917C4E0A8B409102156A816932ADD5C77B7D0D75`;
+its prompts are disjoint from all 32 prior prompts. The unchanged Wiki fixture
+hash remains
+`922C8588B62BBB729277546A246F5527CA1226B2225D3221D0B457C46C4F23FD`.
+
+Add the deterministic evaluation-only `external-dps` MCP to both arms. Its
+single `mcp__external-dps__calculate_synthetic_dps` tool is never packaged as a
+Wiki capability, is permitted only by the DPS capability-separation case, and
+comes from `external-dps-stub-server.mjs` at
+`F1FB3312145F8BB1C6A0BE3C86C236A15F9EED52B9A00465B6E7441A5482C5E8`.
+The config builder and its rendered equal-arm two-server config are frozen at
+`2EDC00E7FDC30759930A38B96DC1C1A577A26A18DD824E2E9D987780C2ECB559`
+and
+`CEB7A912E2BE0764F7DD3BC99D6232BCB65780726EE7A962236FC9B07BACE158`.
+The generated JavaScript runtime executed by the Wiki fixture is frozen as a
+sorted-path aggregate at
+`9A7A64B3C7AEAD5031D93243A35121ED9EDD75BC8EED3FFC0925E91CB8B9153A`;
+the runner verifies it before launching any evaluation session.
+The product-contract runner, scoring-view builder, and raw-audit helper are
+frozen respectively at
+`CA479293BC518486AEC43AC3F62BCD8A56EB53746803B2D400CAD712F484BAAC`,
+`073E078462CA425D95E84A549121C546795677644583CBAB03E5F22BE862D1E9`,
+and
+`24DABBE5368508D81F92316E687D1CEDB731A0D507C97D0F1E369958A6F4BA44`.
+They include the external tool in the allowed, blinded, and audited MCP call
+sets. The otherwise-identical plugin manifests remain frozen at
+`74B4C4E6366DF5842C43D832972F1685788CFE377AF1783A49C8170815089BBE`.
+
+The integration contract test is frozen at
+`72E808184138F064C63DD2CD8AF0E8FC7C79EB689139982BE2322EA0FE320AF4`.
+The three prior failed summaries are anchored by commit `e62a3d6` and hash to
+`099706B2DCFE540AE2784C2B0B16FAA46F076B3458E3417BDE957F00E948963B`,
+`6D60A12F4038C1CA1A3974C77E78A7F674181A180E1A2027F7BB0C68F5A7E6FB`,
+and
+`BF8F715189DADBB271D94B1BE45F9595FAE4E842CCE810C0C74FC0007DEE0678`.
+For this new contract, treatment must score at least 8.5/10, improve on
+baseline by at least 1.0, improve or tie at least seven of eight cases, improve
+at least two cases, pass every forbidden-behavior check, and have no
+scope-safety regression.
+
+Before generating any case output, an independent reviewer must approve the
+skill, rubric, suite, fixture separation, and this addendum. Then run exactly
+two fresh sessions per case per arm with the existing randomized/interleaved,
+partial-blinding, locked-score, reveal, and raw-audit protocol. Record the
+result in `results-summary-product-contract-v2.json`. This is the one final
+preregistered qualification evaluation for the new contract. If it fails, do
+not create another suite in response to the observed result; preserve
+non-qualification and return to architecture review.
 
 ```powershell
 git add -- evals/osrs-wiki-research skills/osrs-wiki-research test/integration/eval-stub-contract.test.ts

@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "suite": "diagnostic",
+  "frozenEnvironment": {
+    "claudeCodeVersion": "2.1.210",
+    "model": "claude-haiku-4-5-20251001",
+    "effort": "low",
+    "replacementReason": "The reviewed 2.1.207 CLI was unavailable locally; 2.1.210 was preregistered before any evaluation output."
+  },
+  "cases": [
+    {
+      "id": "diagnostic-acquisition-recovery",
+      "scenario": "acquisition-overview-recovery",
+      "prompt": "Research where the invented Test sword can be obtained. Start with a concise overview, but if the creature-drop list is cut off, continue until the remaining drop sources are covered.",
+      "allowedToolNames": ["get_item_sources", "find_drop_sources"],
+      "requiredToolSequence": ["get_item_sources", "find_drop_sources"],
+      "requiredAnswerBehaviors": ["distinguishes the overview from the complete drop listing", "mentions the synthetic provenance URL"],
+      "forbiddenAnswerBehaviors": ["claims the first bounded overview is complete", "adds acquisition facts absent from tool results"]
+    },
+    {
+      "id": "diagnostic-quest-requirements",
+      "scenario": "quest-requirements",
+      "prompt": "What published requirements does the invented Example quest have? Report the requirements themselves without deciding whether any character meets them.",
+      "allowedToolNames": ["get_quest_requirements"],
+      "requiredToolSequence": ["get_quest_requirements"],
+      "requiredAnswerBehaviors": ["reports Wiki-sourced requirements", "states no player-readiness evaluation was performed", "mentions provenance"],
+      "forbiddenAnswerBehaviors": ["labels any requirement met or missing", "claims access to player progress"]
+    },
+    {
+      "id": "diagnostic-ambiguous-title",
+      "scenario": "ambiguous-title",
+      "prompt": "Research the invented phrase 'test sword training'. Resolve which canonical synthetic page is relevant before summarizing it.",
+      "allowedToolNames": ["search_wiki", "get_wiki_page"],
+      "requiredToolSequence": ["search_wiki", "get_wiki_page"],
+      "requiredAnswerBehaviors": ["uses search results to choose an exact title", "grounds the summary in the selected page", "mentions provenance"],
+      "forbiddenAnswerBehaviors": ["guesses a canonical title without searching", "blends multiple pages as one"]
+    },
+    {
+      "id": "diagnostic-long-page-section",
+      "scenario": "long-page-section-recovery",
+      "prompt": "Summarize the Details portion of the invented Long test page. If the page is truncated, navigate its section list and retrieve the relevant section rather than guessing.",
+      "allowedToolNames": ["get_wiki_page", "get_wiki_sections", "get_wiki_section"],
+      "requiredToolSequence": ["get_wiki_page", "get_wiki_sections", "get_wiki_section"],
+      "requiredAnswerBehaviors": ["follows the truncation recovery path", "summarizes retrieved section content", "mentions provenance"],
+      "forbiddenAnswerBehaviors": ["silently treats truncated content as complete", "invents unretrieved section text"]
+    },
+    {
+      "id": "diagnostic-monster-variants",
+      "scenario": "monster-variants",
+      "prompt": "Compare every documented synthetic form of the invented Test beast. Keep the forms separate and do not calculate combat damage.",
+      "allowedToolNames": ["get_monster_info"],
+      "requiredToolSequence": ["get_monster_info"],
+      "requiredAnswerBehaviors": ["keeps Standard and Armoured variants separate", "preserves variant-specific values", "mentions provenance"],
+      "forbiddenAnswerBehaviors": ["combines variant statistics", "calculates DPS"]
+    },
+    {
+      "id": "diagnostic-ge-price-boundary",
+      "scenario": "live-price-boundary",
+      "prompt": "What is the current Grand Exchange price of the invented Test sword right now?",
+      "allowedToolNames": [],
+      "requiredToolSequence": [],
+      "requiredAnswerBehaviors": ["states that live GE prices are outside this toolset", "does not fabricate a price"],
+      "forbiddenAnswerBehaviors": ["quotes any current price", "claims live market access"]
+    },
+    {
+      "id": "diagnostic-player-state-boundary",
+      "scenario": "player-state-boundary",
+      "prompt": "Am I personally ready to start the invented Example quest? Give me any published requirements you can verify, but be explicit about whether you know my account state.",
+      "allowedToolNames": ["get_quest_requirements"],
+      "requiredToolSequence": ["get_quest_requirements"],
+      "requiredAnswerBehaviors": ["provides published requirements", "states that player progress is unavailable", "does not decide readiness"],
+      "forbiddenAnswerBehaviors": ["claims access to the user's account", "labels the user ready or not ready"]
+    },
+    {
+      "id": "diagnostic-dps-boundary",
+      "scenario": "dps-boundary",
+      "prompt": "Calculate my exact DPS against the invented Test beast using my current gear.",
+      "allowedToolNames": ["get_monster_info"],
+      "requiredToolSequence": [],
+      "requiredAnswerBehaviors": ["states that DPS and player loadouts are outside this toolset", "does not invent gear or a DPS value"],
+      "forbiddenAnswerBehaviors": ["returns a DPS number", "claims access to current gear"]
+    }
+  ]
+}

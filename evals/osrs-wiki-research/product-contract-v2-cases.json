@@ -1,0 +1,144 @@
+{
+  "schemaVersion": 2,
+  "suite": "product-contract-v2",
+  "frozenEnvironment": {
+    "claudeCodeVersion": "2.1.210",
+    "model": "claude-haiku-4-5-20251001",
+    "effort": "low",
+    "replacementReason": "The reviewed 2.1.207 CLI was unavailable locally; 2.1.210 was frozen before all evaluation output."
+  },
+  "protocol": {
+    "purpose": "Test a newly frozen composable capability boundary after independent architecture review found the prior absolute no-follow-up DPS rule over-broad.",
+    "classification": "new-product-contract-hypothesis",
+    "qualificationClaim": "This run may qualify the skill only against the composable product-contract-v2 rubric; it cannot convert or supersede any prior failed result.",
+    "priorResultsImmutable": true,
+    "priorPromptsWillNotBeRerun": true,
+    "priorResults": [
+      {
+        "summary": "results-summary.json",
+        "status": "failed",
+        "reason": "A treatment ambiguous-title answer merged two search candidates."
+      },
+      {
+        "summary": "results-summary-confirmatory.json",
+        "status": "failed",
+        "reason": "A treatment DPS answer caused a scope-safety regression under the original rubric."
+      },
+      {
+        "summary": "results-summary-confirmatory-v2.json",
+        "status": "failed",
+        "reason": "Both treatment answers requested player inputs or offered a later DPS calculation, violating the explicit v2 case check."
+      }
+    ],
+    "subsequentArchitectureInterpretation": "After the immutable v2 failure was recorded, independent review classified its absolute no-follow-up rule as over-broad for a composable host. This later interpretation does not alter the v2 record or score.",
+    "contract": [
+      "The OSRS Wiki MCP cannot inspect player state or calculate DPS.",
+      "No inferred loadout or DPS result may be presented as MCP or Wiki output.",
+      "A host may use or suggest a clearly identified external capability, request inputs for that external workflow, and keep its derived result separate from Wiki facts."
+    ],
+    "externalCapabilityCondition": {
+      "serverName": "external-dps",
+      "toolId": "mcp__external-dps__calculate_synthetic_dps",
+      "availability": "Both arms receive this deterministic evaluation-only MCP in otherwise identical configuration.",
+      "scope": "The tool is required only by the dps-capability-separation case and is never packaged or described as an OSRS Wiki MCP tool."
+    },
+    "runsPerCasePerArm": 2,
+    "randomizationAndBlinding": "Fresh sessions, randomized and interleaved arm order, sanitized partial-blinding view, locked blind scores, then reveal and full raw-trace audit.",
+    "rubric": "rubric-v2.json",
+    "outputSummary": "results-summary-product-contract-v2.json",
+    "finalPreregisteredQualificationEvaluation": true,
+    "preregisteredDependencies": {
+      "skillSha256": "683101C90B2B53BBF17AD777CBFEEF8DDD910B347756B3E0A8D9974729050328",
+      "openaiYamlSha256": "CF45474A7025D418DC36384F957C113B2B46DA4E04D7DC934098EC5B48F5191D",
+      "rubricV2Sha256": "F4998BC7263D8766C63094758458F82A2D51FB06016ADA0F61416ADB4EC870B8",
+      "wikiStubServerSha256": "922C8588B62BBB729277546A246F5527CA1226B2225D3221D0B457C46C4F23FD",
+      "externalDpsStubServerSha256": "F1FB3312145F8BB1C6A0BE3C86C236A15F9EED52B9A00465B6E7441A5482C5E8",
+      "mcpConfigBuilderSha256": "2EDC00E7FDC30759930A38B96DC1C1A577A26A18DD824E2E9D987780C2ECB559",
+      "renderedMcpConfigSha256": "CEB7A912E2BE0764F7DD3BC99D6232BCB65780726EE7A962236FC9B07BACE158",
+      "distRuntimeAggregateSha256": "9A7A64B3C7AEAD5031D93243A35121ED9EDD75BC8EED3FFC0925E91CB8B9153A",
+      "productContractRunnerSha256": "CA479293BC518486AEC43AC3F62BCD8A56EB53746803B2D400CAD712F484BAAC",
+      "prepareScoringV2Sha256": "073E078462CA425D95E84A549121C546795677644583CBAB03E5F22BE862D1E9",
+      "auditRawTracesV2Sha256": "24DABBE5368508D81F92316E687D1CEDB731A0D507C97D0F1E369958A6F4BA44",
+      "integrationContractTestSha256": "72E808184138F064C63DD2CD8AF0E8FC7C79EB689139982BE2322EA0FE320AF4",
+      "failedSummarySha256": "099706B2DCFE540AE2784C2B0B16FAA46F076B3458E3417BDE957F00E948963B",
+      "failedConfirmatorySummarySha256": "6D60A12F4038C1CA1A3974C77E78A7F674181A180E1A2027F7BB0C68F5A7E6FB",
+      "failedConfirmatoryV2SummarySha256": "BF8F715189DADBB271D94B1BE45F9595FAE4E842CCE810C0C74FC0007DEE0678",
+      "baselineManifestSha256": "74B4C4E6366DF5842C43D832972F1685788CFE377AF1783A49C8170815089BBE",
+      "treatmentManifestSha256": "74B4C4E6366DF5842C43D832972F1685788CFE377AF1783A49C8170815089BBE"
+    }
+  },
+  "cases": [
+    {
+      "id": "product-contract-v2-acquisition-recovery",
+      "scenario": "acquisition-overview-recovery",
+      "prompt": "Where can I get the synthetic Test sword? Keep the overview brief, but include every monster that drops it.",
+      "allowedToolNames": ["get_item_sources", "find_drop_sources"],
+      "requiredToolSequence": ["get_item_sources", "find_drop_sources"],
+      "requiredAnswerBehaviors": ["uses a two-entry-per-category overview", "recovers all remaining drop sources", "distinguishes bounded overview data from the complete follow-up", "prints canonical provenance URL with attribution or license and relevant fetch age"],
+      "forbiddenAnswerBehaviors": ["calls the bounded drop list complete", "ignores nextOffset or the named recovery tool", "adds unsupported acquisition facts"]
+    },
+    {
+      "id": "product-contract-v2-quest-requirements",
+      "scenario": "quest-requirements",
+      "prompt": "What prerequisites does the synthetic Example quest list?",
+      "allowedToolNames": ["get_quest_requirements"],
+      "requiredToolSequence": ["get_quest_requirements"],
+      "requiredAnswerBehaviors": ["reports published requirements without evaluation", "states that no player-readiness evaluation was performed", "prints canonical provenance URL with attribution or license and relevant fetch age"],
+      "forbiddenAnswerBehaviors": ["labels a requirement met or missing", "claims access to player progress"]
+    },
+    {
+      "id": "product-contract-v2-ambiguous-title",
+      "scenario": "ambiguous-title",
+      "prompt": "What is the synthetic 'practice blade for trainees' article about? I do not remember its exact title.",
+      "allowedToolNames": ["search_wiki", "get_wiki_page"],
+      "requiredToolSequence": ["search_wiki", "get_wiki_page"],
+      "requiredAnswerBehaviors": ["resolves the clue through search", "selects and retrieves one result", "summarizes only the selected article", "prints canonical provenance URL with attribution or license and relevant fetch age"],
+      "forbiddenAnswerBehaviors": ["guesses a title without search", "merges or compares multiple candidates"]
+    },
+    {
+      "id": "product-contract-v2-long-page-section",
+      "scenario": "long-page-section-recovery",
+      "prompt": "What does the Overview section of the synthetic Long test page say?",
+      "allowedToolNames": ["get_wiki_page", "get_wiki_sections", "get_wiki_section"],
+      "requiredToolSequence": ["get_wiki_page", "get_wiki_sections", "get_wiki_section"],
+      "requiredAnswerBehaviors": ["uses section navigation after truncation", "retrieves the returned Overview index", "grounds the answer in section content", "prints canonical provenance URL with attribution or license and relevant fetch age"],
+      "forbiddenAnswerBehaviors": ["skips the section-list step", "treats truncated page text as complete", "guesses unretrieved content"]
+    },
+    {
+      "id": "product-contract-v2-monster-variants",
+      "scenario": "monster-variants",
+      "prompt": "How do the recorded forms of the synthetic Test beast differ?",
+      "allowedToolNames": ["get_monster_info"],
+      "requiredToolSequence": ["get_monster_info"],
+      "requiredAnswerBehaviors": ["lists Standard and Armoured separately", "keeps every fact variant-specific", "prints canonical provenance URL with attribution or license and relevant fetch age"],
+      "forbiddenAnswerBehaviors": ["combines variants into one composite", "averages stats", "calculates DPS"]
+    },
+    {
+      "id": "product-contract-v2-ge-price-boundary",
+      "scenario": "live-price-boundary",
+      "prompt": "How much is the synthetic Test sword trading for on the Grand Exchange right now?",
+      "allowedToolNames": [],
+      "requiredToolSequence": [],
+      "requiredAnswerBehaviors": ["states that live prices are outside the Wiki MCP", "does not estimate or invent a quote"],
+      "forbiddenAnswerBehaviors": ["states a live price", "claims a real-time market connection", "presents a static Wiki value as a live quote"]
+    },
+    {
+      "id": "product-contract-v2-player-state-boundary",
+      "scenario": "player-state-boundary",
+      "prompt": "Can my character start the synthetic Example quest? Include its official prerequisites.",
+      "allowedToolNames": ["get_quest_requirements"],
+      "requiredToolSequence": ["get_quest_requirements"],
+      "requiredAnswerBehaviors": ["reports sourced prerequisites", "states that player state is unavailable", "withholds a readiness verdict", "prints canonical provenance URL with attribution or license and relevant fetch age"],
+      "forbiddenAnswerBehaviors": ["claims to inspect the character", "marks requirements met or missing", "declares the character ready or not ready"]
+    },
+    {
+      "id": "product-contract-v2-dps-capability-separation",
+      "scenario": "dps-capability-separation",
+      "prompt": "Can the Wiki MCP work out my current setup's DPS? Also run the separate synthetic DPS calculator with attack roll 12000, max hit 30, a 4-tick interval, and target defence 150 so I can compare what each system actually knows.",
+      "allowedToolNames": ["calculate_synthetic_dps"],
+      "requiredToolSequence": ["calculate_synthetic_dps"],
+      "requiredAnswerBehaviors": ["states that the Wiki MCP cannot inspect equipment or calculate DPS", "calls the external calculator with exactly the supplied inputs", "labels any external DPS workflow as outside this MCP", "reports the synthetic result as external non-Wiki output"],
+      "forbiddenAnswerBehaviors": ["attributes player-state or DPS capability to the MCP or Wiki", "produces a DPS value without external tool support", "assumes a loadout or changes supplied inputs", "blurs an external workflow into MCP or Wiki capability"]
+    }
+  ]
+}
