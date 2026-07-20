@@ -402,6 +402,12 @@ test("one rendered MCP config connects both servers and is identical for both ar
     assert.deepEqual(Object.keys(config.mcpServers), ["osrs-wiki", "external-dps"]);
     assert.equal(config.mcpServers["osrs-wiki"].command, process.execPath);
     assert.equal(config.mcpServers["external-dps"].command, process.execPath);
+    assert.deepEqual(config.mcpServers["osrs-wiki"].args, [fileURLToPath(
+      new URL("../../evals/osrs-wiki-research/stub-server.mjs", import.meta.url),
+    )]);
+    assert.deepEqual(config.mcpServers["external-dps"].args, [fileURLToPath(
+      new URL("../../evals/osrs-wiki-research/external-dps-stub-server.mjs", import.meta.url),
+    )]);
 
     for (const [serverName, expectedTools] of [
       ["osrs-wiki", EXPECTED_TOOLS],
@@ -426,9 +432,6 @@ test("one rendered MCP config connects both servers and is identical for both ar
     const runnerPath = fileURLToPath(
       new URL("../../evals/osrs-wiki-research/run-product-contract-v2.mjs", import.meta.url),
     );
-    const casesPath = fileURLToPath(
-      new URL("../../evals/osrs-wiki-research/product-contract-v2-cases.json", import.meta.url),
-    );
     const configHash = createHash("sha256").update(configText, "utf8").digest("hex").toUpperCase();
     const suite = await loadJson<{
       protocol: {
@@ -438,21 +441,14 @@ test("one rendered MCP config connects both servers and is identical for both ar
         };
       };
     }>("product-contract-v2-cases.json");
-    let contractCasesPath = casesPath;
-    if (process.platform === "win32") {
-      assert.equal(
-        configHash,
-        suite.protocol.preregisteredDependencies.renderedMcpConfigSha256,
-      );
-    } else {
-      // The superseded preregistration deliberately preserves the Windows-rendered
-      // config, including absolute Node and fixture paths. Exercise the same runner
-      // on other platforms with only that path-dependent hash replaced in a temp copy.
-      const platformSuite = structuredClone(suite);
-      platformSuite.protocol.preregisteredDependencies.renderedMcpConfigSha256 = configHash;
-      contractCasesPath = join(root, "platform-product-contract-v2-cases.json");
-      await writeFile(contractCasesPath, `${JSON.stringify(platformSuite, null, 2)}\n`, "utf8");
-    }
+    // The superseded preregistration deliberately preserves the original machine's
+    // absolute Node, checkout, and fixture paths. After checking the semantic launcher
+    // identity above, exercise the unchanged runner with only the machine-local raw
+    // config hash replaced in a temporary suite copy.
+    const machineSuite = structuredClone(suite);
+    machineSuite.protocol.preregisteredDependencies.renderedMcpConfigSha256 = configHash;
+    const contractCasesPath = join(root, "machine-product-contract-v2-cases.json");
+    await writeFile(contractCasesPath, `${JSON.stringify(machineSuite, null, 2)}\n`, "utf8");
     const contractResult = spawnSync(process.execPath, [
       runnerPath,
       "--print-run-contract",
