@@ -243,6 +243,23 @@ test("tools/list exposes exactly ten read-only, open-world tools with input and 
   }
 });
 
+test("initialize publishes concise Wiki-tool selection instructions", async () => {
+  const connection = await connectedClient(stubWikiClient());
+  try {
+    assert.equal(
+      connection.client.getInstructions(),
+      [
+        "Use the most specific OSRS Wiki tool for the question.",
+        "Use get_item_sources for a bounded acquisition overview and find_shop or find_drop_sources for complete paginated listings.",
+        "Follow warnings, nextOffset, and section-navigation recovery paths.",
+        "Treat results as Wiki facts rather than player-progress evaluation, preserve provenance URLs, and do not invent GE prices, DPS, or account state.",
+      ].join(" "),
+    );
+  } finally {
+    await connection.close();
+  }
+});
+
 test("a successful call has matching readable and schema-validated structured content", async () => {
   const connection = await connectedClient(stubWikiClient());
   try {

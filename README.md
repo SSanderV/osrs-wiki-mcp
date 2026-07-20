@@ -9,12 +9,75 @@ responses with validated structured content and source provenance.
 Node.js 24 or newer is required. The executable prints a concise upgrade
 message on older supported runtimes.
 
+### Install as a plugin or extension
+
+The plugin adds one-install MCP setup and a small source-backed research skill.
+It does not add player progress, GE prices, DPS, hosting, or any tools beyond
+the ten listed below.
+
+Codex:
+
+```powershell
+codex plugin marketplace add SanderVirula/osrs-wiki-mcp --ref v1.1.0
+codex plugin add osrs-wiki-mcp@sander-virula-osrs
+```
+
+Claude Code:
+
+```powershell
+claude plugin marketplace add SanderVirula/osrs-wiki-mcp@v1.1.0 --scope user
+claude plugin install osrs-wiki-mcp@sander-virula-osrs --scope user
+```
+
+The marketplace install and bare-`npx` launcher were verified with Claude Code
+2.1.215 on Windows. This is a tested baseline, not an inferred minimum.
+
+Gemini CLI:
+
+```powershell
+gemini extensions install https://github.com/SanderVirula/osrs-wiki-mcp --ref v1.1.0
+```
+
+All three start the exact top-level npm runtime `osrs-wiki-mcp@1.1.0`.
+Node.js 24 or newer and `npx` must be available on `PATH`. The launcher may use
+the npm registry and local npm cache. Release verification records the resolved
+dependency tree, but the wrapper is not claimed to be fully reproducible
+offline.
+
+If `osrs-wiki` is already configured directly, install and validate the plugin
+in an isolated profile first. Then remove the direct registration with the
+matching client command:
+
+```powershell
+# Codex: ~/.codex/config.toml
+codex mcp list
+codex mcp remove osrs-wiki
+
+# Claude Code: ~/.claude.json or a project .mcp.json
+claude mcp list
+claude mcp remove osrs-wiki
+
+# Gemini CLI user registration: ~/.gemini/settings.json
+gemini mcp list
+gemini mcp remove osrs-wiki --scope user
+
+# Use this instead for a project registration: .gemini/settings.json
+gemini mcp remove osrs-wiki --scope project
+```
+
+Start a fresh task or session and confirm exactly one plugin-owned `osrs-wiki`
+server with ten tools. Gemini settings override an extension server with the
+same name, so verify the server's origin as well as its count.
+
+The raw MCP configuration below remains the smallest option for clients that
+do not support plugins.
+
 Configure an MCP client to use the pinned npm release:
 
 ```json
 {
   "command": "npx",
-  "args": ["-y", "osrs-wiki-mcp@1.0.0"]
+  "args": ["-y", "osrs-wiki-mcp@1.1.0"]
 }
 ```
 

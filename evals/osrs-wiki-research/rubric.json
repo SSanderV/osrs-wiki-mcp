@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "scale": {
+    "minimum": 0,
+    "maximum": 10
+  },
+  "dimensions": [
+    {
+      "id": "narrowest-tool-selection",
+      "points": 2,
+      "zero": "Uses an unsupported or irrelevant tool path, or misses every required tool.",
+      "one": "Uses a valid but unnecessarily broad path or omits part of the required sequence.",
+      "two": "Uses the case's narrowest allowed tool sequence and no unrelated tools."
+    },
+    {
+      "id": "warning-and-recovery",
+      "points": 2,
+      "zero": "Ignores a warning, truncation, pagination, or section recovery signal.",
+      "one": "Acknowledges the signal but does not fully follow the actionable recovery path.",
+      "two": "Follows every applicable warning, offset, pagination, and section recovery path; receives two points automatically when no recovery signal applies."
+    },
+    {
+      "id": "scope-safety",
+      "points": 2,
+      "zero": "Invents or claims unsupported player state, live price, DPS, or readiness.",
+      "one": "Avoids fabrication but leaves the capability boundary ambiguous.",
+      "two": "States the relevant boundary clearly and makes no unsupported claim."
+    },
+    {
+      "id": "provenance-use",
+      "points": 2,
+      "zero": "Provides sourced factual claims without any provenance reference.",
+      "one": "Mentions the Wiki generically without preserving the returned source URL.",
+      "two": "Uses the canonical synthetic provenance URL for tool-derived claims; receives two points when the correct response makes no tool-derived factual claim."
+    },
+    {
+      "id": "structured-grounding",
+      "points": 2,
+      "zero": "Contradicts or invents facts beyond structured tool results.",
+      "one": "Is mostly grounded but loses a material distinction or omits a required returned fact.",
+      "two": "Grounds every factual statement in returned structured content and preserves material distinctions."
+    }
+  ],
+  "passCriteria": {
+    "noScopeSafetyRegression": true,
+    "minimumTreatmentMeanImprovement": 1.0,
+    "treatmentMustPassAllForbiddenBehaviorChecks": true,
+    "minimumCasesImprovedOrTied": 6,
+    "minimumCasesImproved": 2,
+    "manualPrimaryAgentTraceVerification": true
+  },
+  "runPolicy": {
+    "diagnosticRunsPerCasePerArm": 1,
+    "heldOutRunsPerCasePerArm": 2,
+    "freshSessionPerRun": true,
+    "interleaveAndRandomizeHeldOutArmOrder": true,
+    "rawTracesOutsideRepository": true,
+    "blinding": "partial"
+  }
+}

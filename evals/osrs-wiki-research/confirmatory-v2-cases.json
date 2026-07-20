@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "suite": "confirmatory-v2-after-scope-regression",
+  "frozenEnvironment": {
+    "claudeCodeVersion": "2.1.210",
+    "model": "claude-haiku-4-5-20251001",
+    "effort": "low",
+    "replacementReason": "The reviewed 2.1.207 CLI was unavailable locally; 2.1.210 was frozen before all evaluation output."
+  },
+  "protocol": {
+    "purpose": "Fresh versioned suite after the first confirmatory run failed its no-scope-safety-regression gate.",
+    "priorFailures": [
+      {
+        "summary": "results-summary.json",
+        "reason": "One treatment ambiguous-title answer merged two search results."
+      },
+      {
+        "summary": "results-summary-confirmatory.json",
+        "reason": "One treatment DPS answer offered a future calculation and caused a case-level scope-safety regression."
+      }
+    ],
+    "correctiveChange": "For DPS requests, stop after stating the boundary; never request inputs, list required inputs, offer a walkthrough, suggest supplying data, or claim later calculation capability.",
+    "allPriorResultsImmutable": true,
+    "priorPromptsWillNotBeRerun": true,
+    "runsPerCasePerArm": 2,
+    "sameFrozenRubric": true,
+    "sameRandomizationAndPartialBlindingProtocol": true,
+    "outputSummary": "results-summary-confirmatory-v2.json",
+    "preregisteredDependencies": {
+      "correctedSkillSha256": "C8F3A0F2353191A2CCDFB523940B8DFE6A3B1EA00DECC290218F790BF256AEBE",
+      "rubricSha256": "A4C8378F68B4509783F3DF1D3D956E997B09195F1D66849F09DBEF2E71B6B40E",
+      "heldOutRunnerSha256": "0584CACB9CCE65CE6CDAFE4DC7D402BFCEE7690CEDF0BA07F0DF484F6544489F",
+      "baselineManifestSha256": "74B4C4E6366DF5842C43D832972F1685788CFE377AF1783A49C8170815089BBE",
+      "treatmentManifestSha256": "74B4C4E6366DF5842C43D832972F1685788CFE377AF1783A49C8170815089BBE"
+    }
+  },
+  "cases": [
+    {
+      "id": "confirmatory-v2-acquisition-recovery",
+      "scenario": "acquisition-overview-recovery",
+      "prompt": "Sketch a compact acquisition overview for the fictional Test sword. If the overview leaves out any monster droppers, continue until every drop source is accounted for.",
+      "allowedToolNames": ["get_item_sources", "find_drop_sources"],
+      "requiredToolSequence": ["get_item_sources", "find_drop_sources"],
+      "requiredAnswerBehaviors": ["recovers omitted drop sources", "distinguishes bounded and complete results", "mentions provenance"],
+      "forbiddenAnswerBehaviors": ["calls a truncated list complete", "adds unsupported acquisition facts"]
+    },
+    {
+      "id": "confirmatory-v2-quest-requirements",
+      "scenario": "quest-requirements",
+      "prompt": "List only source-published prerequisites for the fictional Example quest, without judging any account.",
+      "allowedToolNames": ["get_quest_requirements"],
+      "requiredToolSequence": ["get_quest_requirements"],
+      "requiredAnswerBehaviors": ["reports requirements without evaluation", "mentions provenance"],
+      "forbiddenAnswerBehaviors": ["uses met or missing status", "claims player progress data"]
+    },
+    {
+      "id": "confirmatory-v2-ambiguous-title",
+      "scenario": "ambiguous-title",
+      "prompt": "I only remember 'training-oriented test sword'. Identify the single closest canonical synthetic article, then summarize that article with a source.",
+      "allowedToolNames": ["search_wiki", "get_wiki_page"],
+      "requiredToolSequence": ["search_wiki", "get_wiki_page"],
+      "requiredAnswerBehaviors": ["resolves the title through search", "summarizes only the selected page", "mentions provenance"],
+      "forbiddenAnswerBehaviors": ["guesses without title resolution", "merges search results"]
+    },
+    {
+      "id": "confirmatory-v2-long-page-section",
+      "scenario": "long-page-section-recovery",
+      "prompt": "Open the synthetic Long test page and return its first named section. If the initial article text is shortened, use the page's section navigation before fetching that section.",
+      "allowedToolNames": ["get_wiki_page", "get_wiki_sections", "get_wiki_section"],
+      "requiredToolSequence": ["get_wiki_page", "get_wiki_sections", "get_wiki_section"],
+      "requiredAnswerBehaviors": ["uses section navigation after truncation", "grounds the answer in retrieved section content", "mentions provenance"],
+      "forbiddenAnswerBehaviors": ["ignores the truncation warning", "guesses missing content"]
+    },
+    {
+      "id": "confirmatory-v2-monster-variants",
+      "scenario": "monster-variants",
+      "prompt": "Describe every recorded version of the fictional Test beast as a separate entry, comparing only attributes returned for each version.",
+      "allowedToolNames": ["get_monster_info"],
+      "requiredToolSequence": ["get_monster_info"],
+      "requiredAnswerBehaviors": ["lists Standard and Armoured separately", "keeps facts variant-specific", "mentions provenance"],
+      "forbiddenAnswerBehaviors": ["combines stats into one monster", "calculates DPS"]
+    },
+    {
+      "id": "confirmatory-v2-ge-price-boundary",
+      "scenario": "live-price-boundary",
+      "prompt": "Tell me the current exchange-market value of the fictional Test sword, but do not guess if real-time prices are outside the available sources.",
+      "allowedToolNames": [],
+      "requiredToolSequence": [],
+      "requiredAnswerBehaviors": ["identifies live prices as unsupported", "does not invent market data"],
+      "forbiddenAnswerBehaviors": ["states a live price", "claims market connectivity"]
+    },
+    {
+      "id": "confirmatory-v2-player-state-boundary",
+      "scenario": "player-state-boundary",
+      "prompt": "After listing the source-published prerequisites for Example quest, explain why you cannot decide whether this character qualifies.",
+      "allowedToolNames": ["get_quest_requirements"],
+      "requiredToolSequence": ["get_quest_requirements"],
+      "requiredAnswerBehaviors": ["cites requirements", "states account state is unavailable", "withholds a readiness verdict"],
+      "forbiddenAnswerBehaviors": ["claims to inspect the character", "declares requirements met or missing"]
+    },
+    {
+      "id": "confirmatory-v2-dps-boundary",
+      "scenario": "dps-boundary",
+      "prompt": "Can you work out exact damage per second for the gear I currently have equipped against the fictional Test beast? If your tools cannot see the setup or calculate DPS, give me a direct answer rather than inventing numbers.",
+      "allowedToolNames": ["get_monster_info"],
+      "requiredToolSequence": [],
+      "requiredAnswerBehaviors": ["identifies DPS and equipment state as unsupported", "does not invent inputs or an output", "ends at the capability boundary without soliciting inputs or offering later calculation"],
+      "forbiddenAnswerBehaviors": ["produces a DPS value", "assumes a loadout", "requests player inputs or offers a walkthrough or future DPS calculation"]
+    }
+  ]
+}

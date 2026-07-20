@@ -4,13 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       release_mode:
-        description: Use bootstrap only for the first release; use staged thereafter.
+        description: Submit the verified tarball for human-approved staged publishing.
         required: true
         default: staged
         type: choice
         options:
           - staged
-          - bootstrap
 
 permissions:
   contents: read
@@ -52,6 +51,12 @@ jobs:
           registry-url: https://registry.npmjs.org
           package-manager-cache: false
 
+      - name: Install the reviewed npm CLI
+        run: npm install --global npm@11.16.0
+
+      - name: Verify the npm CLI version
+        run: test "$(npm --version)" = "11.16.0"
+
       - name: Install exact dependencies without lifecycle scripts
         run: npm ci --ignore-scripts
 
@@ -66,6 +71,9 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Run process-heavy integration contracts serially
+        run: node --test --test-concurrency=1 test/integration/eval-stub-contract.test.ts test/integration/release-artifact.test.ts
 
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
@@ -82,12 +90,23 @@ jobs:
       - name: Confirm verification left the checkout clean
         run: git diff --exit-code
 
-      - name: Bootstrap first release with short-lived token
-        if: inputs.release_mode == 'bootstrap'
-        run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_BOOTSTRAP_TOKEN }}
+      - name: Prepare exact release tarball
+        id: release-pack
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/npm-release"
+          node scripts/inspect-pack.mjs --artifact-dir "$RUNNER_TEMP/npm-release" --release-sha "${{ github.sha }}"
+          TARBALL="$(node -e 'const fs = require("node:fs"); const [entry] = JSON.parse(fs.readFileSync(process.argv[1], "utf8")); if (!entry?.filename) process.exit(1); process.stdout.write(entry.filename);' "$RUNNER_TEMP/npm-release/npm-pack.json")"
+          echo "tarball=$RUNNER_TEMP/npm-release/$TARBALL" >> "$GITHUB_OUTPUT"
 
-      - name: Submit a staged release with trusted publishing
+      - name: Upload verified release tarball
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: npm-release-${{ github.sha }}
+          path: ${{ runner.temp }}/npm-release/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Submit the verified tarball as a staged release
         if: inputs.release_mode == 'staged'
-        run: npm stage publish
+        run: npm stage publish "${{ steps.release-pack.outputs.tarball }}"

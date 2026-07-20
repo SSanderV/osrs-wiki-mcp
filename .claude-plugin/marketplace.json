@@ -1,0 +1,16 @@
+{
+  "name": "sander-virula-osrs",
+  "description": "OSRS Wiki MCP plugins by SanderVirula.",
+  "owner": {
+    "name": "SanderVirula"
+  },
+  "plugins": [
+    {
+      "name": "osrs-wiki-mcp",
+      "source": "./",
+      "description": "Install the stateless OSRS Wiki MCP with source-backed research guidance.",
+      "category": "research",
+      "tags": ["osrs", "wiki", "mcp"]
+    }
+  ]
+}

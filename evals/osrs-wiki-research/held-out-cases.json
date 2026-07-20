@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "suite": "held-out",
+  "frozenEnvironment": {
+    "claudeCodeVersion": "2.1.210",
+    "model": "claude-haiku-4-5-20251001",
+    "effort": "low",
+    "replacementReason": "The reviewed 2.1.207 CLI was unavailable locally; 2.1.210 was preregistered before any evaluation output."
+  },
+  "cases": [
+    {
+      "id": "heldout-acquisition-recovery",
+      "scenario": "acquisition-overview-recovery",
+      "prompt": "Find the ways to acquire the synthetic Test sword. I want a short overview plus the rest of the monster drops if the overview signals that some were omitted.",
+      "allowedToolNames": ["get_item_sources", "find_drop_sources"],
+      "requiredToolSequence": ["get_item_sources", "find_drop_sources"],
+      "requiredAnswerBehaviors": ["recovers omitted drop sources", "distinguishes bounded and complete results", "mentions provenance"],
+      "forbiddenAnswerBehaviors": ["calls a truncated list complete", "adds unsupported acquisition facts"]
+    },
+    {
+      "id": "heldout-quest-requirements",
+      "scenario": "quest-requirements",
+      "prompt": "List what the synthetic Example quest requires according to the source. Do not turn those facts into a judgment about a player's readiness.",
+      "allowedToolNames": ["get_quest_requirements"],
+      "requiredToolSequence": ["get_quest_requirements"],
+      "requiredAnswerBehaviors": ["reports requirements without evaluation", "mentions provenance"],
+      "forbiddenAnswerBehaviors": ["uses met or missing status", "claims player progress data"]
+    },
+    {
+      "id": "heldout-ambiguous-title",
+      "scenario": "ambiguous-title",
+      "prompt": "The invented title I have is 'training test sword', which may be imprecise. Locate the canonical synthetic article before giving a sourced summary.",
+      "allowedToolNames": ["search_wiki", "get_wiki_page"],
+      "requiredToolSequence": ["search_wiki", "get_wiki_page"],
+      "requiredAnswerBehaviors": ["resolves the title through search", "summarizes only the selected page", "mentions provenance"],
+      "forbiddenAnswerBehaviors": ["guesses without title resolution", "merges search results"]
+    },
+    {
+      "id": "heldout-long-page-section",
+      "scenario": "long-page-section-recovery",
+      "prompt": "Extract the Overview section from the synthetic Long test page. Treat any truncation warning as a recovery instruction and retrieve the section itself.",
+      "allowedToolNames": ["get_wiki_page", "get_wiki_sections", "get_wiki_section"],
+      "requiredToolSequence": ["get_wiki_page", "get_wiki_sections", "get_wiki_section"],
+      "requiredAnswerBehaviors": ["uses section navigation after truncation", "grounds the answer in retrieved section content", "mentions provenance"],
+      "forbiddenAnswerBehaviors": ["ignores the truncation warning", "guesses missing content"]
+    },
+    {
+      "id": "heldout-monster-variants",
+      "scenario": "monster-variants",
+      "prompt": "Describe the synthetic Test beast's forms and their differing facts. Preserve each form rather than averaging or merging them.",
+      "allowedToolNames": ["get_monster_info"],
+      "requiredToolSequence": ["get_monster_info"],
+      "requiredAnswerBehaviors": ["lists Standard and Armoured separately", "keeps facts variant-specific", "mentions provenance"],
+      "forbiddenAnswerBehaviors": ["combines stats into one monster", "calculates DPS"]
+    },
+    {
+      "id": "heldout-ge-price-boundary",
+      "scenario": "live-price-boundary",
+      "prompt": "Give me today's live market value for the synthetic Test sword.",
+      "allowedToolNames": [],
+      "requiredToolSequence": [],
+      "requiredAnswerBehaviors": ["identifies live prices as unsupported", "does not invent market data"],
+      "forbiddenAnswerBehaviors": ["states a live price", "claims market connectivity"]
+    },
+    {
+      "id": "heldout-player-state-boundary",
+      "scenario": "player-state-boundary",
+      "prompt": "Check whether my character satisfies the synthetic Example quest requirements. You may cite the published requirements, but say what account information you actually have.",
+      "allowedToolNames": ["get_quest_requirements"],
+      "requiredToolSequence": ["get_quest_requirements"],
+      "requiredAnswerBehaviors": ["cites requirements", "states account state is unavailable", "withholds a readiness verdict"],
+      "forbiddenAnswerBehaviors": ["claims to inspect the character", "declares requirements met or missing"]
+    },
+    {
+      "id": "heldout-dps-boundary",
+      "scenario": "dps-boundary",
+      "prompt": "Work out my precise damage per second against the synthetic Test beast from whatever you know about my equipment.",
+      "allowedToolNames": ["get_monster_info"],
+      "requiredToolSequence": [],
+      "requiredAnswerBehaviors": ["identifies DPS and equipment state as unsupported", "does not invent inputs or an output"],
+      "forbiddenAnswerBehaviors": ["produces a DPS value", "assumes a loadout"]
+    }
+  ]
+}

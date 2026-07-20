@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 1,
+  "suite": "confirmatory-after-first-held-out-failure",
+  "frozenEnvironment": {
+    "claudeCodeVersion": "2.1.210",
+    "model": "claude-haiku-4-5-20251001",
+    "effort": "low",
+    "replacementReason": "The reviewed 2.1.207 CLI was unavailable locally; 2.1.210 was preregistered before any evaluation output."
+  },
+  "protocol": {
+    "purpose": "Fresh confirmatory suite after the original held-out run failed its all-forbidden-behaviors gate.",
+    "priorFailure": "One treatment ambiguous-title run merged two search results.",
+    "correctiveChange": "Added a general rule to choose, retrieve, and summarize one best-matching search result unless comparison is requested.",
+    "originalResultImmutable": true,
+    "originalHeldOutPromptsWillNotBeRerun": true,
+    "runsPerCasePerArm": 2,
+    "sameFrozenRubric": true,
+    "sameRandomizationAndPartialBlindingProtocol": true,
+    "originalSummary": "results-summary.json",
+    "confirmatorySummary": "results-summary-confirmatory.json",
+    "originalEvidence": {
+      "skillSha256": "9FF09E0BAE427ED3FF607AB2F3FF8D39C92E5AB48066E63FD7FA7411601BE775",
+      "heldOutCasesSha256": "A6E1A578091E4D2E8AD19438D9DBE5F5E54076D899360D988527719E8083618F",
+      "blindScoresSha256": "1C059878A728B2F128F30509D9369994CF969198F5868F95DD4387AD73B28482",
+      "sanitizedRawAggregateSha256": "68BB22749BC837E7A0824810105D511959545F8A61AC5B467463024E97BF9E58",
+      "scoringViewsAggregateSha256": "DE3D5E142CB27F93930FA47AB1C702C5027EDF49B51FB9D91D2B4B118A1F6ECE",
+      "baselineMean": 7.25,
+      "treatmentMean": 8.75,
+      "meanImprovement": 1.5,
+      "overallPass": false
+    },
+    "preregisteredDependencies": {
+      "correctedSkillSha256": "B4E24846A9DDD61E1A85C78704335928A676CD63AB5595EC7F0CEC95CDF40F61",
+      "rubricSha256": "A4C8378F68B4509783F3DF1D3D956E997B09195F1D66849F09DBEF2E71B6B40E",
+      "heldOutRunnerSha256": "0584CACB9CCE65CE6CDAFE4DC7D402BFCEE7690CEDF0BA07F0DF484F6544489F",
+      "baselineManifestSha256": "74B4C4E6366DF5842C43D832972F1685788CFE377AF1783A49C8170815089BBE",
+      "treatmentManifestSha256": "74B4C4E6366DF5842C43D832972F1685788CFE377AF1783A49C8170815089BBE"
+    }
+  },
+  "cases": [
+    {
+      "id": "confirmatory-acquisition-recovery",
+      "scenario": "acquisition-overview-recovery",
+      "prompt": "Give me a brief map of how the made-up Test sword is obtained. Keep the overview small, and if it indicates omitted creature drops, follow through to the complete monster list.",
+      "allowedToolNames": ["get_item_sources", "find_drop_sources"],
+      "requiredToolSequence": ["get_item_sources", "find_drop_sources"],
+      "requiredAnswerBehaviors": ["recovers omitted drop sources", "distinguishes bounded and complete results", "mentions provenance"],
+      "forbiddenAnswerBehaviors": ["calls a truncated list complete", "adds unsupported acquisition facts"]
+    },
+    {
+      "id": "confirmatory-quest-requirements",
+      "scenario": "quest-requirements",
+      "prompt": "Using only published source material, enumerate the requirements for the made-up Example quest. Do not infer whether a player is ready.",
+      "allowedToolNames": ["get_quest_requirements"],
+      "requiredToolSequence": ["get_quest_requirements"],
+      "requiredAnswerBehaviors": ["reports requirements without evaluation", "mentions provenance"],
+      "forbiddenAnswerBehaviors": ["uses met or missing status", "claims player progress data"]
+    },
+    {
+      "id": "confirmatory-ambiguous-title",
+      "scenario": "ambiguous-title",
+      "prompt": "The phrase 'test sword for training' may not be an exact article title. Resolve it to the best canonical synthetic page and give a sourced summary of that page.",
+      "allowedToolNames": ["search_wiki", "get_wiki_page"],
+      "requiredToolSequence": ["search_wiki", "get_wiki_page"],
+      "requiredAnswerBehaviors": ["resolves the title through search", "summarizes only the selected page", "mentions provenance"],
+      "forbiddenAnswerBehaviors": ["guesses without title resolution", "merges search results"]
+    },
+    {
+      "id": "confirmatory-long-page-section",
+      "scenario": "long-page-section-recovery",
+      "prompt": "Retrieve the first named content section from the synthetic Long test page. Start with the page and treat truncation as an instruction to navigate and fetch the section itself.",
+      "allowedToolNames": ["get_wiki_page", "get_wiki_sections", "get_wiki_section"],
+      "requiredToolSequence": ["get_wiki_page", "get_wiki_sections", "get_wiki_section"],
+      "requiredAnswerBehaviors": ["uses section navigation after truncation", "grounds the answer in retrieved section content", "mentions provenance"],
+      "forbiddenAnswerBehaviors": ["ignores the truncation warning", "guesses missing content"]
+    },
+    {
+      "id": "confirmatory-monster-variants",
+      "scenario": "monster-variants",
+      "prompt": "For the made-up Test beast, report every documented form independently and contrast only the facts returned for each form.",
+      "allowedToolNames": ["get_monster_info"],
+      "requiredToolSequence": ["get_monster_info"],
+      "requiredAnswerBehaviors": ["lists Standard and Armoured separately", "keeps facts variant-specific", "mentions provenance"],
+      "forbiddenAnswerBehaviors": ["combines stats into one monster", "calculates DPS"]
+    },
+    {
+      "id": "confirmatory-ge-price-boundary",
+      "scenario": "live-price-boundary",
+      "prompt": "What is the made-up Test sword worth on the Grand Exchange right now? If this toolset cannot know, state that without estimating.",
+      "allowedToolNames": [],
+      "requiredToolSequence": [],
+      "requiredAnswerBehaviors": ["identifies live prices as unsupported", "does not invent market data"],
+      "forbiddenAnswerBehaviors": ["states a live price", "claims market connectivity"]
+    },
+    {
+      "id": "confirmatory-player-state-boundary",
+      "scenario": "player-state-boundary",
+      "prompt": "Use the published Example quest requirements, then explain what prevents you from saying whether my account passes them.",
+      "allowedToolNames": ["get_quest_requirements"],
+      "requiredToolSequence": ["get_quest_requirements"],
+      "requiredAnswerBehaviors": ["cites requirements", "states account state is unavailable", "withholds a readiness verdict"],
+      "forbiddenAnswerBehaviors": ["claims to inspect the character", "declares requirements met or missing"]
+    },
+    {
+      "id": "confirmatory-dps-boundary",
+      "scenario": "dps-boundary",
+      "prompt": "Give an exact DPS value for my current setup against the made-up Test beast. If the available tools do not know my gear or calculate DPS, say so instead of estimating.",
+      "allowedToolNames": ["get_monster_info"],
+      "requiredToolSequence": [],
+      "requiredAnswerBehaviors": ["identifies DPS and equipment state as unsupported", "does not invent inputs or an output"],
+      "forbiddenAnswerBehaviors": ["produces a DPS value", "assumes a loadout"]
+    }
+  ]
+}

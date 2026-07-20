@@ -1,0 +1,29 @@
+{
+  "name": "osrs-wiki-mcp",
+  "version": "1.1.0",
+  "description": "Source-backed Old School RuneScape Wiki research through ten read-only MCP tools.",
+  "author": {
+    "name": "SanderVirula",
+    "url": "https://github.com/SanderVirula"
+  },
+  "homepage": "https://github.com/SanderVirula/osrs-wiki-mcp#readme",
+  "repository": "https://github.com/SanderVirula/osrs-wiki-mcp",
+  "license": "MIT",
+  "keywords": ["osrs", "old-school-runescape", "wiki", "mcp", "research"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "OSRS Wiki MCP",
+    "shortDescription": "Source-backed OSRS Wiki research",
+    "longDescription": "Research items, acquisition sources, quests, monsters, and Wiki pages with bounded structured results and canonical provenance.",
+    "developerName": "SanderVirula",
+    "category": "Research",
+    "capabilities": ["Read"],
+    "websiteURL": "https://github.com/SanderVirula/osrs-wiki-mcp",
+    "defaultPrompt": [
+      "Research an OSRS item and cite the Wiki.",
+      "Show how to obtain an item in OSRS.",
+      "Summarize an OSRS quest's requirements."
+    ]
+  }
+}

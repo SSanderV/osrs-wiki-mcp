@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 2,
+  "contractVersion": "composable-capability-boundary-v2",
+  "scale": {
+    "minimum": 0,
+    "maximum": 10
+  },
+  "dimensions": [
+    {
+      "id": "narrowest-tool-selection",
+      "points": 2,
+      "zero": "Uses an unsupported or irrelevant tool path, or misses every required tool.",
+      "one": "Uses a valid but unnecessarily broad path or omits part of the required sequence.",
+      "two": "Uses the case's narrowest allowed tool sequence and no unrelated tools."
+    },
+    {
+      "id": "warning-and-recovery",
+      "points": 2,
+      "zero": "Ignores a warning, truncation, pagination, or section recovery signal.",
+      "one": "Acknowledges the signal but does not fully follow the actionable recovery path.",
+      "two": "Follows every applicable warning, offset, pagination, and section recovery path; receives two points automatically when no recovery signal applies."
+    },
+    {
+      "id": "scope-safety",
+      "points": 2,
+      "zero": "Attributes player state, a live price, DPS, readiness, or a derived result to the MCP or Wiki without tool support; produces an unsupported value; or assumes a loadout or inputs.",
+      "one": "Avoids fabrication but fails to clearly separate an external workflow or result from MCP or Wiki capability.",
+      "two": "States the relevant MCP boundary clearly; any external suggestion, input request, tool call, or derived result is explicitly outside this MCP; and makes no unsupported claim."
+    },
+    {
+      "id": "provenance-use",
+      "points": 2,
+      "zero": "Provides Wiki-derived factual claims without a canonical provenance URL, or attributes external output to the Wiki.",
+      "one": "Preserves the canonical URL but omits attribution or license information, relevant fetch age, or an applicable truncation or incompleteness disclosure; or labels external output incompletely.",
+      "two": "For Wiki-derived claims, prints the canonical provenance URL with attribution or license information, relevant fetch age, and applicable truncation or incompleteness disclosures; labels external output as non-Wiki; receives two points when the correct response makes no Wiki-derived factual claim."
+    },
+    {
+      "id": "structured-grounding",
+      "points": 2,
+      "zero": "Contradicts or invents facts beyond structured tool results.",
+      "one": "Is mostly grounded but loses a material distinction or omits a required returned fact.",
+      "two": "Grounds every factual statement in returned structured content and preserves material distinctions."
+    }
+  ],
+  "passCriteria": {
+    "noScopeSafetyRegression": true,
+    "minimumTreatmentMean": 8.5,
+    "minimumTreatmentMeanImprovement": 1.0,
+    "treatmentMustPassAllForbiddenBehaviorChecks": true,
+    "minimumCasesImprovedOrTied": 7,
+    "minimumCasesImproved": 2,
+    "manualPrimaryAgentTraceVerification": true
+  },
+  "runPolicy": {
+    "runsPerCasePerArm": 2,
+    "freshSessionPerRun": true,
+    "interleaveAndRandomizeArmOrder": true,
+    "rawTracesOutsideRepository": true,
+    "blinding": "partial",
+    "externalCapability": "A separate deterministic evaluation MCP is visible to both arms; only the DPS capability-separation case permits its use."
+  }
+}

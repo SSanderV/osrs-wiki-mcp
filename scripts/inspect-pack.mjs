@@ -1,8 +1,26 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import {
+  mkdtemp,
+  mkdir,
+  readFile,
+  readdir,
+  realpath,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, dirname, join, relative, resolve, sep } from "node:path";
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+  sep,
+} from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
@@ -130,13 +148,27 @@ async function npm(args, options = {}) {
   if (process.env.npm_execpath) {
     return run(process.execPath, [process.env.npm_execpath, ...args], options);
   }
-  return run(process.platform === "win32" ? "npm.cmd" : "npm", args, options);
+  if (process.platform === "win32") {
+    const npmCli = join(
+      dirname(process.execPath),
+      "node_modules",
+      "npm",
+      "bin",
+      "npm-cli.js",
+    );
+    return run(process.execPath, [npmCli, ...args], options);
+  }
+  return run("npm", args, options);
+}
+
+function parsePackJsonDocument(stdout, label) {
+  const parsed = JSON.parse(stdout);
+  assert.ok(Array.isArray(parsed) && parsed.length === 1, `${label} returned one package`);
+  return { document: parsed, entry: parsed[0] };
 }
 
 function parsePackJson(stdout, label) {
-  const parsed = JSON.parse(stdout);
-  assert.ok(Array.isArray(parsed) && parsed.length === 1, `${label} returned one package`);
-  return parsed[0];
+  return parsePackJsonDocument(stdout, label).entry;
 }
 
 async function listFiles(root, prefix = "") {
@@ -170,9 +202,10 @@ async function verifyInstalledBinary(installRoot) {
   }
 }
 
-function verifiedTarballPath(filename) {
-  const path = resolve(repositoryRoot, filename);
-  if (dirname(path) !== repositoryRoot || !/^osrs-wiki-mcp-\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?\.tgz$/u.test(basename(path))) {
+function verifiedTarballPath(filename, directory = repositoryRoot) {
+  const base = resolve(directory);
+  const path = resolve(base, filename);
+  if (dirname(path) !== base || !/^osrs-wiki-mcp-\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?\.tgz$/u.test(basename(path))) {
     throw new Error(`Refusing unsafe tarball path: ${filename}`);
   }
   return path;
@@ -186,16 +219,35 @@ async function removeVerifiedTemp(path) {
   await rm(path, { recursive: true, force: true });
 }
 
-async function inspectPackage() {
-  const dryRun = parsePackJson((await npm(["pack", "--dry-run", "--json"])).stdout, "dry run");
-  validateManifestPaths(dryRun.files.map(({ path }) => path));
+async function verifyPackedMetadata(packed, tarballPath) {
+  const packageJson = JSON.parse(
+    await readFile(join(repositoryRoot, "package.json"), "utf8"),
+  );
+  const tarball = await readFile(tarballPath);
+  assert.equal(packed.name, packageJson.name, "packed package name");
+  assert.equal(packed.version, packageJson.version, "packed package version");
+  assert.equal(packed.filename, basename(tarballPath), "packed filename");
+  assert.equal(
+    packed.shasum,
+    createHash("sha1").update(tarball).digest("hex"),
+    "packed shasum",
+  );
+  assert.equal(
+    packed.integrity,
+    `sha512-${createHash("sha512").update(tarball).digest("base64")}`,
+    "packed integrity",
+  );
+  assert.ok(Array.isArray(packed.files), "packed file manifest");
+  validateManifestPaths(packed.files.map(({ path }) => path));
+  return tarball;
+}
 
-  const packed = parsePackJson((await npm(["pack", "--json"])).stdout, "pack");
-  const tarballPath = verifiedTarballPath(packed.filename);
+async function verifyTarball(packed, tarballPath) {
   const extractRoot = await mkdtemp(join(tmpdir(), "osrs-wiki-mcp-pack-"));
   const installRoot = await mkdtemp(join(tmpdir(), "osrs-wiki-mcp-install-"));
 
   try {
+    const tarball = await verifyPackedMetadata(packed, tarballPath);
     await run("tar", ["-xf", tarballPath, "-C", extractRoot], { cwd: repositoryRoot });
     const extractedPaths = await listFiles(extractRoot);
     validateManifestPaths(extractedPaths, { extracted: true });
@@ -215,16 +267,144 @@ async function inspectPackage() {
       { cwd: installRoot },
     );
     await verifyInstalledBinary(installRoot);
+    return tarball;
   } finally {
     await removeVerifiedTemp(extractRoot);
     await removeVerifiedTemp(installRoot);
+  }
+}
+
+async function inspectPackage() {
+  const dryRun = parsePackJson((await npm(["pack", "--dry-run", "--json"])).stdout, "dry run");
+  validateManifestPaths(dryRun.files.map(({ path }) => path));
+
+  const packed = parsePackJson((await npm(["pack", "--json"])).stdout, "pack");
+  const tarballPath = verifiedTarballPath(packed.filename);
+  try {
+    await verifyTarball(packed, tarballPath);
+  } finally {
     await rm(tarballPath, { force: true });
   }
 }
 
+function pathIsWithin(parent, candidate) {
+  const path = relative(parent, candidate);
+  return path === "" ||
+    (path !== ".." && !path.startsWith(`..${sep}`) && !isAbsolute(path));
+}
+
+async function verifiedArtifactDirectory(value) {
+  assert.equal(typeof value, "string", "artifact directory must be a path");
+  const artifactDirectory = await realpath(resolve(value));
+  const root = await realpath(repositoryRoot);
+  assert.equal(
+    pathIsWithin(root, artifactDirectory),
+    false,
+    "artifact directory must be outside the repository",
+  );
+  assert.equal(
+    (await stat(artifactDirectory)).isDirectory(),
+    true,
+    "artifact directory must be a directory",
+  );
+  assert.deepEqual(
+    await readdir(artifactDirectory),
+    [],
+    "artifact directory must be empty",
+  );
+  return artifactDirectory;
+}
+
+function parseInvocation(args) {
+  if (args.length === 0) return { mode: "local" };
+  if (args.length === 1 && args[0] === "--self-test") {
+    return { mode: "self-test" };
+  }
+
+  const options = new Map();
+  for (let index = 0; index < args.length; index += 2) {
+    const key = args[index];
+    const value = args[index + 1];
+    if (!key?.startsWith("--") || value === undefined || options.has(key)) {
+      throw new Error(
+        "Usage: inspect-pack.mjs [--self-test | --artifact-dir <path> --release-sha <40-hex>]",
+      );
+    }
+    options.set(key, value);
+  }
+  if (
+    options.size !== 2 ||
+    !options.has("--artifact-dir") ||
+    !options.has("--release-sha")
+  ) {
+    throw new Error(
+      "Release mode requires --artifact-dir and --release-sha",
+    );
+  }
+  const releaseSha = options.get("--release-sha");
+  if (!/^[0-9a-f]{40}$/u.test(releaseSha)) {
+    throw new Error("release SHA must be 40 lowercase hexadecimal characters");
+  }
+  return {
+    mode: "release",
+    artifactDirectory: options.get("--artifact-dir"),
+    releaseSha,
+  };
+}
+
+async function inspectReleaseArtifact(artifactDirectoryValue, releaseSha) {
+  const artifactDirectory = await verifiedArtifactDirectory(
+    artifactDirectoryValue,
+  );
+  let tarballPath;
+  try {
+    const packResult = await npm([
+      "pack",
+      "--json",
+      "--pack-destination",
+      artifactDirectory,
+    ]);
+    const { entry: packed } = parsePackJsonDocument(packResult.stdout, "pack");
+    tarballPath = verifiedTarballPath(packed.filename, artifactDirectory);
+    const tarball = await verifyTarball(packed, tarballPath);
+    const sha256 = createHash("sha256").update(tarball).digest("hex");
+
+    await writeFile(
+      join(artifactDirectory, "npm-pack.json"),
+      packResult.stdout,
+      "utf8",
+    );
+    await writeFile(
+      join(artifactDirectory, "SHA256SUMS"),
+      `${sha256}  ${packed.filename}\n`,
+      "utf8",
+    );
+    await writeFile(
+      join(artifactDirectory, "RELEASE_SHA"),
+      `${releaseSha}\n`,
+      "utf8",
+    );
+  } catch (error) {
+    if (tarballPath !== undefined) await rm(tarballPath, { force: true });
+    await Promise.all(
+      ["npm-pack.json", "SHA256SUMS", "RELEASE_SHA"].map((name) =>
+        rm(join(artifactDirectory, name), { force: true })
+      ),
+    );
+    throw error;
+  }
+}
+
+const invocation = parseInvocation(process.argv.slice(2));
 runSelfTest();
-if (process.argv.includes("--self-test")) {
+if (invocation.mode === "self-test") {
   process.stdout.write("pack inspection self-test passed\n");
+} else if (invocation.mode === "release") {
+  await inspectReleaseArtifact(
+    invocation.artifactDirectory,
+    invocation.releaseSha,
+  );
+  process.stdout.write("release package inspection passed\n");
 } else {
   await inspectPackage();
   process.stdout.write("package inspection passed\n");

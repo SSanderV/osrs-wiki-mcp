@@ -51,6 +51,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Run process-heavy integration contracts serially
+        run: node --test --test-concurrency=1 test/integration/eval-stub-contract.test.ts test/integration/release-artifact.test.ts
+
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
 

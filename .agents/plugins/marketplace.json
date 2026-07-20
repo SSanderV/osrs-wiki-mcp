@@ -1,0 +1,20 @@
+{
+  "name": "sander-virula-osrs",
+  "interface": {
+    "displayName": "SanderVirula OSRS"
+  },
+  "plugins": [
+    {
+      "name": "osrs-wiki-mcp",
+      "source": {
+        "source": "local",
+        "path": "./plugins/osrs-wiki-mcp"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Research"
+    }
+  ]
+}

@@ -20,6 +20,13 @@ import type { WikiRequestContext } from "./wiki/wiki-client.ts";
 
 const TOOL_BUDGET_MS = 30_000;
 
+export const SERVER_INSTRUCTIONS = [
+  "Use the most specific OSRS Wiki tool for the question.",
+  "Use get_item_sources for a bounded acquisition overview and find_shop or find_drop_sources for complete paginated listings.",
+  "Follow warnings, nextOffset, and section-navigation recovery paths.",
+  "Treat results as Wiki facts rather than player-progress evaluation, preserve provenance URLs, and do not invent GE prices, DPS, or account state.",
+].join(" ");
+
 export type WikiClientLike = PageWikiClient & ItemSourcesWikiClient & QuestWikiClient & MonsterWikiClient;
 
 export interface ServerLogger {
@@ -182,7 +189,10 @@ const annotations = {
 } as const;
 
 export function createServer({ wikiClient, version, clock = systemClock, logger = console }: CreateServerOptions): McpServer {
-  const server = new McpServer({ name: "osrs-wiki-mcp", version });
+  const server = new McpServer(
+    { name: "osrs-wiki-mcp", version },
+    { instructions: SERVER_INSTRUCTIONS },
+  );
   const protocolTools = new Map<string, {
     schema: z.ZodType;
     call(args: unknown, signal: AbortSignal): Promise<CallToolResult>;
