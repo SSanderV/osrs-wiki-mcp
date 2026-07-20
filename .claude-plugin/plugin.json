@@ -1,0 +1,15 @@
+{
+  "name": "osrs-wiki-mcp",
+  "displayName": "OSRS Wiki MCP",
+  "version": "1.1.2",
+  "description": "Source-backed Old School RuneScape Wiki research through ten read-only MCP tools.",
+  "author": {
+    "name": "SSanderV"
+  },
+  "homepage": "https://github.com/SSanderV/osrs-wiki-mcp#readme",
+  "repository": "https://github.com/SSanderV/osrs-wiki-mcp",
+  "license": "MIT",
+  "keywords": ["osrs", "old-school-runescape", "wiki", "mcp", "research"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json"
+}

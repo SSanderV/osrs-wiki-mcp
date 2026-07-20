@@ -1,0 +1,45 @@
+{
+  "name": "osrs-wiki-mcp",
+  "version": "1.1.2",
+  "description": "A stateless semantic MCP server for the Old School RuneScape Wiki",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SSanderV/osrs-wiki-mcp.git"
+  },
+  "bugs": "https://github.com/SSanderV/osrs-wiki-mcp/issues",
+  "homepage": "https://github.com/SSanderV/osrs-wiki-mcp#readme",
+  "bin": {
+    "osrs-wiki-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json",
+    "test": "node --test \"test/*.test.ts\"",
+    "test:live": "npm run build && node scripts/live-smoke.mjs",
+    "smoke:stdio": "npm run build && node scripts/stdio-smoke.mjs",
+    "pack:check": "npm run build && node scripts/inspect-pack.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.3",
+    "typescript": "7.0.2"
+  }
+}

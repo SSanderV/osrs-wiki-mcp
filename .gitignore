@@ -1,0 +1,20 @@
+node_modules/
+dist/
+coverage/
+*.tgz
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
+*.log
+.tmp/
+tmp/
+package/
+
+# Local agent state and internal planning/evaluation artifacts
+.claude/
+.codex/
+.worktrees/
+docs/superpowers/
+evals/

@@ -1,0 +1,11 @@
+{
+  "name": "osrs-wiki-mcp",
+  "version": "1.1.2",
+  "description": "Source-backed Old School RuneScape Wiki research through ten read-only MCP tools.",
+  "mcpServers": {
+    "osrs-wiki": {
+      "command": "npx",
+      "args": ["--yes", "osrs-wiki-mcp@1.1.2"]
+    }
+  }
+}

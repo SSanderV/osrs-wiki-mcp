@@ -1,0 +1,112 @@
+name: Publish to npm
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_mode:
+        description: Submit the verified tarball for human-approved staged publishing.
+        required: true
+        default: staged
+        type: choice
+        options:
+          - staged
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: npm-publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Verify and publish
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: npm
+    env:
+      NPM_CONFIG_PROVENANCE: "true"
+
+    steps:
+      - name: Check out complete history
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Scan repository and complete history
+        uses: trufflesecurity/trufflehog@27b0417c16317ca9a472a9a8092acce143b49c55 # v3.95.9
+        with:
+          path: ./
+          base: ""
+          head: HEAD
+          version: "3.95.9"
+
+      - name: Set up Node.js 24 and npm registry
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      - name: Install the reviewed npm CLI
+        run: npm install --global npm@11.16.0
+
+      - name: Verify the npm CLI version
+        run: test "$(npm --version)" = "11.16.0"
+
+      - name: Install exact dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+
+      - name: Verify dependency signatures
+        run: npm audit signatures
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Run process-heavy integration contracts serially
+        run: node --test --test-concurrency=1 test/integration/release-artifact.test.ts
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Exercise stdio transport
+        run: npm run smoke:stdio
+
+      - name: Inspect dry-run package manifest
+        run: npm pack --dry-run --json
+
+      - name: Scan and smoke-test the real package tarball
+        run: npm run pack:check
+
+      - name: Confirm verification left the checkout clean
+        run: git diff --exit-code
+
+      - name: Prepare exact release tarball
+        id: release-pack
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/npm-release"
+          node scripts/inspect-pack.mjs --artifact-dir "$RUNNER_TEMP/npm-release" --release-sha "${{ github.sha }}"
+          TARBALL="$(node -e 'const fs = require("node:fs"); const [entry] = JSON.parse(fs.readFileSync(process.argv[1], "utf8")); if (!entry?.filename) process.exit(1); process.stdout.write(entry.filename);' "$RUNNER_TEMP/npm-release/npm-pack.json")"
+          echo "tarball=$RUNNER_TEMP/npm-release/$TARBALL" >> "$GITHUB_OUTPUT"
+
+      - name: Upload verified release tarball
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: npm-release-${{ github.sha }}
+          path: ${{ runner.temp }}/npm-release/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Submit the verified tarball as a staged release
+        if: inputs.release_mode == 'staged'
+        run: npm stage publish "${{ steps.release-pack.outputs.tarball }}"

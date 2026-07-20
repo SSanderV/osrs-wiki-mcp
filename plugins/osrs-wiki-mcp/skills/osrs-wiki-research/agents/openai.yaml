@@ -1,0 +1,7 @@
+interface:
+  display_name: "OSRS Wiki Research"
+  short_description: "Source-backed OSRS Wiki research"
+  default_prompt: "Use $osrs-wiki-research to research an OSRS question with Wiki sources."
+
+policy:
+  allow_implicit_invocation: true

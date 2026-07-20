@@ -1,0 +1,20 @@
+{
+  "name": "osrs-wiki",
+  "interface": {
+    "displayName": "OSRS Wiki MCP"
+  },
+  "plugins": [
+    {
+      "name": "osrs-wiki-mcp",
+      "source": {
+        "source": "local",
+        "path": "./plugins/osrs-wiki-mcp"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Research"
+    }
+  ]
+}
