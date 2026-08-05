@@ -52,7 +52,7 @@ jobs:
         run: npm run build
 
       - name: Run process-heavy integration contracts serially
-        run: node --test --test-concurrency=1 test/integration/release-artifact.test.ts
+        run: node --test --test-concurrency=1 "test/integration/*.test.ts"
 
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
@@ -108,4 +108,4 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Verify forward compatibility
-        run: npm run typecheck && npm test && npm run build && npm run smoke:stdio
+        run: npm run typecheck && npm test && npm run build && node --test --test-concurrency=1 "test/integration/*.test.ts" && npm run smoke:stdio
