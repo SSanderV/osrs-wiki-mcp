@@ -236,10 +236,13 @@ test("trusted staged publishing pins tooling and publishes the verified artifact
     workflow,
     /npm stage publish "\$\{\{ steps\.release-pack\.outputs\.tarball \}\}"/u,
   );
+  // Matched as a directory glob rather than one filename so that every
+  // integration contract runs in both workflows, including the bin-entry
+  // symlink check that guards the published executable.
   for (const testWorkflow of [ci, workflow]) {
     assert.match(
       testWorkflow,
-      /node --test --test-concurrency=1 test\/integration\/release-artifact\.test\.ts/u,
+      /node --test --test-concurrency=1 "test\/integration\/\*\.test\.ts"/u,
     );
   }
 });

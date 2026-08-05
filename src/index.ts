@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { realpathSync } from "node:fs";
 import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 
@@ -68,8 +69,13 @@ export async function main(): Promise<void> {
   await server.connect(new StdioServerTransport());
 }
 
+// npm links `bin` entries as symlinks, so argv[1] is the link while
+// import.meta.url is already resolved to the real path. Resolve argv[1] too, or
+// the comparison never holds under any documented install and the server exits
+// 0 without starting.
 const isExecutable =
-  process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
+  process.argv[1] !== undefined &&
+  import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href;
 
 if (isExecutable) {
   void runExecutable({

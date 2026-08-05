@@ -73,7 +73,7 @@ jobs:
         run: npm run build
 
       - name: Run process-heavy integration contracts serially
-        run: node --test --test-concurrency=1 test/integration/release-artifact.test.ts
+        run: node --test --test-concurrency=1 "test/integration/*.test.ts"
 
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
