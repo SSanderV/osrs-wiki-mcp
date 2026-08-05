@@ -45,7 +45,7 @@ test("all plugin manifests share the package version and exact MCP declaration",
   const gemini = await loadJson<GeminiManifest>("gemini-extension.json");
   const mcp = await loadJson<McpConfig>(".mcp.json");
 
-  assert.equal(packageJson.version, "1.1.2");
+  assert.equal(packageJson.version, "1.1.3");
   assert.equal(packageLock.version, packageJson.version);
   assert.equal(packageLock.packages[""]?.version, packageJson.version);
   for (const manifest of [codex, claude, gemini]) {
@@ -77,7 +77,7 @@ test("all plugin manifests share the package version and exact MCP declaration",
     mcpServers: {
       "osrs-wiki": {
         command: "npx",
-        args: ["--yes", "osrs-wiki-mcp@1.1.2"],
+        args: ["--yes", "osrs-wiki-mcp@1.1.3"],
       },
     },
   });
@@ -205,7 +205,7 @@ test("plugin configuration contains only the exact runtime pin and no secrets, w
     ([pin]) => pin,
   );
   assert.ok(pins.length > 0);
-  assert.deepEqual([...new Set(pins)], ["osrs-wiki-mcp@1.1.2"]);
+  assert.deepEqual([...new Set(pins)], ["osrs-wiki-mcp@1.1.3"]);
   assert.doesNotMatch(text, /[A-Za-z]:[\\/]Users[\\/]/u);
   assert.doesNotMatch(text, /token|secret|password|api[_-]?key/iu);
   assert.doesNotMatch(text, /"(env|hooks|apps|monitors|commands)"\s*:/u);
