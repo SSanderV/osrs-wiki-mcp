@@ -102,6 +102,10 @@ export function scanTextContent(text, label) {
 }
 
 export function runSelfTest() {
+  for (const shape of ['[{"name":"a"}]', '{"a":{"name":"a"}}']) {
+    assert.equal(parsePackJson(shape, "self-test").name, "a");
+  }
+
   const good = [
     "package.json",
     "dist/index.js",
@@ -163,8 +167,10 @@ async function npm(args, options = {}) {
 
 function parsePackJsonDocument(stdout, label) {
   const parsed = JSON.parse(stdout);
-  assert.ok(Array.isArray(parsed) && parsed.length === 1, `${label} returned one package`);
-  return { document: parsed, entry: parsed[0] };
+  // npm 12 keys this output by package name; earlier versions return an array.
+  const document = Array.isArray(parsed) ? parsed : Object.values(parsed);
+  assert.ok(document.length === 1, `${label} returned one package`);
+  return { document, entry: document[0] };
 }
 
 function parsePackJson(stdout, label) {
@@ -364,14 +370,14 @@ async function inspectReleaseArtifact(artifactDirectoryValue, releaseSha) {
       "--pack-destination",
       artifactDirectory,
     ]);
-    const { entry: packed } = parsePackJsonDocument(packResult.stdout, "pack");
+    const { document, entry: packed } = parsePackJsonDocument(packResult.stdout, "pack");
     tarballPath = verifiedTarballPath(packed.filename, artifactDirectory);
     const tarball = await verifyTarball(packed, tarballPath);
     const sha256 = createHash("sha256").update(tarball).digest("hex");
 
     await writeFile(
       join(artifactDirectory, "npm-pack.json"),
-      packResult.stdout,
+      `${JSON.stringify(document, null, 2)}\n`,
       "utf8",
     );
     await writeFile(
