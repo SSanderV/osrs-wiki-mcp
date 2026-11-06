@@ -1,31 +1,57 @@
 name: Publish to npm
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - package.json
   workflow_dispatch:
-    inputs:
-      release_mode:
-        description: Submit the verified tarball for human-approved staged publishing.
-        required: true
-        default: staged
-        type: choice
-        options:
-          - staged
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
   group: npm-publish-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
+  release-check:
+    name: Check for an unpublished version
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      unpublished: ${{ steps.registry.outputs.unpublished }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Compare the package version with npm
+        id: registry
+        shell: bash
+        run: |
+          VERSION="$(node -p 'require("./package.json").version')"
+          PUBLISHED="$(npm view "osrs-wiki-mcp@$VERSION" version 2>/dev/null || true)"
+          if [ "$PUBLISHED" = "$VERSION" ]; then
+            echo "unpublished=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "unpublished=true" >> "$GITHUB_OUTPUT"
+          fi
+
   publish:
     name: Verify and publish
-    if: github.ref == 'refs/heads/main'
+    needs: release-check
+    if: needs.release-check.outputs.unpublished == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: npm
+    permissions:
+      contents: read
+      id-token: write
     env:
       NPM_CONFIG_PROVENANCE: "true"
 
@@ -107,6 +133,5 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-      - name: Submit the verified tarball as a staged release
-        if: inputs.release_mode == 'staged'
-        run: npm stage publish "${{ steps.release-pack.outputs.tarball }}"
+      - name: Publish the verified tarball
+        run: npm publish "${{ steps.release-pack.outputs.tarball }}"

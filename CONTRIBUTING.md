@@ -41,8 +41,16 @@ The repository, npm runtime, Codex plugin, Claude plugin, and Gemini extension
 use one release version. When the version changes, update `package.json`,
 `package-lock.json`, `plugins/osrs-wiki-mcp/.codex-plugin/plugin.json`,
 `.claude-plugin/plugin.json`, `gemini-extension.json`, both `.mcp.json` copies,
-and every documented exact pin together. Keep the canonical and Codex-mirrored
-skill and MCP files byte-identical.
+and every documented exact pin together. `node scripts/bump-version.mjs` does
+this for a patch release. Keep the canonical and Codex-mirrored skill and MCP
+files byte-identical.
+
+## Releases
+
+Merging a `package.json` change to `main` runs the publish workflow. If that
+version is not on npm yet, the workflow verifies the package and publishes it
+directly with trusted publishing. Push the matching `v<version>` tag afterwards,
+because the documented plugin install commands use it.
 
 Before submitting a plugin change, run the normal verification commands plus:
 
