@@ -215,7 +215,7 @@ test("plugin configuration contains only the exact runtime pin and no secrets, w
   );
 });
 
-test("trusted staged publishing pins tooling and publishes the verified artifact", async () => {
+test("trusted publishing pins tooling and publishes the verified artifact", async () => {
   const workflow = await loadText(".github/workflows/publish.yml");
   const ci = await loadText(".github/workflows/ci.yml");
   assert.match(workflow, /npm install --global npm@11\.16\.0/u);
@@ -234,8 +234,9 @@ test("trusted staged publishing pins tooling and publishes the verified artifact
   );
   assert.match(
     workflow,
-    /npm stage publish "\$\{\{ steps\.release-pack\.outputs\.tarball \}\}"/u,
+    /npm publish "\$\{\{ steps\.release-pack\.outputs\.tarball \}\}"/u,
   );
+  assert.match(workflow, /needs\.release-check\.outputs\.unpublished == 'true'/u);
   // Matched as a directory glob rather than one filename so that every
   // integration contract runs in both workflows, including the bin-entry
   // symlink check that guards the published executable.

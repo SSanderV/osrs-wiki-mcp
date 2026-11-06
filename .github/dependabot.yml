@@ -9,6 +9,8 @@ updates:
       time: "04:00"
       timezone: Etc/UTC
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     ignore:
       - dependency-name: "@types/node"
         update-types:
@@ -29,6 +31,8 @@ updates:
       time: "04:30"
       timezone: Etc/UTC
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     groups:
       actions-minor-and-patch:
         patterns:
