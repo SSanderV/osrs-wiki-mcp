@@ -22,25 +22,25 @@ Node.js 24 or newer and `npx` are required.
 ### Codex
 
 ```powershell
-codex plugin marketplace add SSanderV/osrs-wiki-mcp --ref v1.1.4
+codex plugin marketplace add SSanderV/osrs-wiki-mcp --ref v1.1.5
 codex plugin add osrs-wiki-mcp@osrs-wiki
 ```
 
 ### Claude Code
 
 ```powershell
-claude plugin marketplace add SSanderV/osrs-wiki-mcp@v1.1.4 --scope user
+claude plugin marketplace add SSanderV/osrs-wiki-mcp@v1.1.5 --scope user
 claude plugin install osrs-wiki-mcp@osrs-wiki --scope user
 ```
 
 ### Gemini CLI
 
 ```powershell
-gemini extensions install https://github.com/SSanderV/osrs-wiki-mcp --ref v1.1.4
+gemini extensions install https://github.com/SSanderV/osrs-wiki-mcp --ref v1.1.5
 ```
 
 The plugin and extension include the MCP setup plus a small Wiki-research
-skill. All three launch the pinned npm package `osrs-wiki-mcp@1.1.4`.
+skill. All three launch the pinned npm package `osrs-wiki-mcp@1.1.5`.
 
 ### Other MCP clients
 
@@ -49,7 +49,7 @@ Configure a standard-input/output server with:
 ```json
 {
   "command": "npx",
-  "args": ["--yes", "osrs-wiki-mcp@1.1.4"]
+  "args": ["--yes", "osrs-wiki-mcp@1.1.5"]
 }
 ```
 
